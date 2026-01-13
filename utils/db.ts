@@ -106,6 +106,14 @@ export interface Task {
   created_at: number
 }
 
+export interface GlossaryItem {
+  id: string
+  board_id: string
+  name: string
+  color: string
+  order: number
+}
+
 // Funciones CRUD para Board
 export async function getBoard(): Promise<Board | null> {
   return queryOne<Board>('SELECT * FROM boards LIMIT 1')
@@ -192,5 +200,35 @@ export async function moveTask(taskId: string, newColumnId: string, newOrder: nu
 export async function reorderTasks(updates: Array<{ id: string; order: number }>): Promise<void> {
   for (const update of updates) {
     await query('UPDATE tasks SET "order" = $1 WHERE id = $2', [update.order, update.id])
+  }
+}
+
+// Funciones CRUD para Glossary
+export async function getGlossaryItems(boardId: string): Promise<GlossaryItem[]> {
+  return query<GlossaryItem>('SELECT * FROM glossary WHERE board_id = $1 ORDER BY "order" ASC', [boardId])
+}
+
+export async function createGlossaryItem(id: string, boardId: string, name: string, color: string, order: number): Promise<GlossaryItem> {
+  await query('INSERT INTO glossary (id, board_id, name, color, "order") VALUES ($1, $2, $3, $4, $5)', [id, boardId, name, color, order])
+  return { id, board_id: boardId, name, color, order }
+}
+
+export async function updateGlossaryItem(id: string, name?: string, color?: string): Promise<void> {
+  if (name !== undefined && color !== undefined) {
+    await query('UPDATE glossary SET name = $1, color = $2 WHERE id = $3', [name, color, id])
+  } else if (name !== undefined) {
+    await query('UPDATE glossary SET name = $1 WHERE id = $2', [name, id])
+  } else if (color !== undefined) {
+    await query('UPDATE glossary SET color = $1 WHERE id = $2', [color, id])
+  }
+}
+
+export async function deleteGlossaryItem(id: string): Promise<void> {
+  await query('DELETE FROM glossary WHERE id = $1', [id])
+}
+
+export async function reorderGlossaryItems(updates: Array<{ id: string; order: number }>): Promise<void> {
+  for (const update of updates) {
+    await query('UPDATE glossary SET "order" = $1 WHERE id = $2', [update.order, update.id])
   }
 }

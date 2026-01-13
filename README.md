@@ -12,11 +12,13 @@ Postly es una aplicación personal tipo Trello para organizar tareas de forma vi
 
 - 📋 **Tablero visual** - Organiza tus tareas en columnas personalizables
 - 🎨 **Post-its con colores** - Diferencia tareas con colores opcionales
+- 📚 **Glosario de colores** - Crea un glosario personalizado asociando nombres a colores
 - 🔄 **Drag & Drop** - Mueve tareas entre columnas o reordénalas fácilmente
 - 🔐 **Protección con PIN** - Acceso seguro con PIN local hasheado
 - 🌙 **Modo oscuro** - Se adapta automáticamente a tu sistema
 - 📱 **Responsive** - Funciona perfectamente en desktop y móvil
 - ⚡ **Rápido y ligero** - Sin dependencias pesadas, solo lo esencial
+- 🎨 **Diseño moderno** - Interfaz limpia con mejoras UX/UI
 
 ## 🚀 Inicio Rápido
 
@@ -95,11 +97,13 @@ postly/
 │   ├── Board.vue       # Contenedor principal del tablero
 │   ├── Column.vue      # Columna de tareas
 │   ├── TaskCard.vue    # Tarjeta de tarea (post-it)
+│   ├── Glossary.vue    # Glosario de colores
 │   └── PinGate.vue     # Pantalla de autenticación con PIN
 ├── composables/        # Composables de Vue (lógica reutilizable)
 │   ├── useBoard.ts     # Gestión del tablero
 │   ├── useColumns.ts   # Gestión de columnas
 │   ├── useTasks.ts     # Gestión de tareas
+│   ├── useGlossary.ts  # Gestión del glosario de colores
 │   └── useAuth.ts      # Autenticación con PIN
 ├── database/           # Scripts SQL
 │   └── schema.sql      # Esquema de la base de datos
@@ -136,6 +140,21 @@ postly/
 - ✅ Eliminar tareas
 - ✅ Mover tareas entre columnas (drag & drop)
 - ✅ Reordenar tareas dentro de columnas
+
+### Glosario de Colores
+- ✅ Crear elementos del glosario asociando nombres a colores
+- ✅ Editar nombres de elementos (doble clic)
+- ✅ Eliminar elementos del glosario
+- ✅ Visualización como badges con círculo de color y nombre
+- ✅ Persistencia en base de datos
+
+### Mejoras UX/UI
+- ✅ Scroll de página completa (no en columnas individuales)
+- ✅ Columnas que crecen dinámicamente con el contenido
+- ✅ Botones de eliminar simplificados (solo X sin círculo)
+- ✅ Mejoras visuales: sombras, transiciones, espaciado
+- ✅ Mejor jerarquía tipográfica y contraste
+- ✅ Estados hover y feedback visual mejorados
 
 ## 🔐 Seguridad
 
@@ -191,7 +210,38 @@ interface Task {
   order: number
   created_at: number
 }
+
+// GlossaryItem
+interface GlossaryItem {
+  id: string
+  board_id: string
+  name: string
+  color: string
+  order: number
+}
 ```
+
+## 🎨 Mejoras Recientes
+
+### Versión Actual
+
+**Mejoras UX/UI:**
+- Sistema de scroll mejorado: las columnas crecen dinámicamente y el scroll es de la página completa, evitando conflictos con drag & drop
+- Botones de eliminar simplificados: diseño minimalista con solo la X, sin círculo de fondo
+- Mejoras visuales generales:
+  - Sombras más sutiles y graduales
+  - Mejor contraste y legibilidad
+  - Transiciones suaves con cubic-bezier
+  - Espaciado optimizado para mejor respiración visual
+  - Jerarquía tipográfica mejorada
+  - Estados hover y feedback visual refinados
+
+**Nueva Funcionalidad - Glosario de Colores:**
+- Permite crear un glosario personalizado asociando nombres a colores de post-its
+- Visualización como badges con círculo de color y nombre
+- Edición inline con doble clic
+- Persistencia completa en base de datos
+- Integrado entre el título del tablero y las columnas
 
 ## 📝 Licencia
 

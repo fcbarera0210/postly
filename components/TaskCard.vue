@@ -171,7 +171,7 @@ const cardStyle = computed(() => {
 .task-card {
   position: relative;
   background: var(--postit-default);
-  padding: var(--spacing-md);
+  padding: var(--spacing-lg);
   border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-postit);
   min-height: 100px;
@@ -193,8 +193,8 @@ const cardStyle = computed(() => {
 }
 
 .task-card:hover:not(.is-editing) {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-postit-hover);
 }
 
 /* Estilos para el elemento ghost durante el drag */
@@ -205,9 +205,10 @@ const cardStyle = computed(() => {
 
 .task-card.sortable-drag {
   cursor: grabbing !important;
-  opacity: 0.8;
+  opacity: 0.9;
   transform: rotate(2deg) scale(1.05);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: 1000;
 }
 
 @media (max-width: 768px) {
@@ -227,11 +228,12 @@ const cardStyle = computed(() => {
 
 .task-card__title {
   font-size: var(--font-size-base);
-  line-height: 1.4;
+  line-height: var(--line-height-relaxed);
   color: var(--text-primary);
   word-wrap: break-word;
   margin: 0;
   cursor: text;
+  font-weight: var(--font-weight-normal);
 }
 
 .task-card__title-input {
@@ -266,7 +268,7 @@ const cardStyle = computed(() => {
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--transition-base);
   flex-shrink: 0;
   position: relative;
   z-index: 11;
@@ -275,19 +277,19 @@ const cardStyle = computed(() => {
 }
 
 .task-card__color-option:hover {
-  transform: scale(1.15);
+  transform: scale(1.2);
   border-color: var(--text-primary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 
 .task-card__color-option:active {
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 
 .task-card__color-option--active {
   border-color: var(--text-primary);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3);
-  transform: scale(1.1);
+  box-shadow: var(--shadow-md);
+  transform: scale(1.25);
 }
 
 .task-card__color-option--clear {
@@ -304,18 +306,17 @@ const cardStyle = computed(() => {
   position: absolute;
   top: var(--spacing-xs);
   right: var(--spacing-xs);
-  width: 24px;
-  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.1);
-  color: var(--text-primary);
-  font-size: 20px;
+  color: var(--text-tertiary);
+  font-size: 24px;
   line-height: 1;
   opacity: 0;
-  transition: opacity var(--transition-fast), background var(--transition-fast);
+  padding: var(--spacing-xs);
+  transition: opacity var(--transition-base), color var(--transition-base), transform var(--transition-base);
+  cursor: pointer;
+  z-index: 10;
 }
 
 .task-card:hover .task-card__delete {
@@ -323,7 +324,11 @@ const cardStyle = computed(() => {
 }
 
 .task-card__delete:hover {
-  background: rgba(239, 154, 154, 0.3);
   color: #d32f2f;
+  transform: scale(1.3);
+}
+
+.task-card__delete:active {
+  transform: scale(1.1);
 }
 </style>

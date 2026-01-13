@@ -25,6 +25,11 @@
       </button>
     </div>
 
+    <Glossary
+      v-if="boardId"
+      :board-id="boardId"
+    />
+
     <div class="board__columns-wrapper">
       <div v-if="loading" class="board__loading">
         <p>Cargando columnas...</p>
@@ -88,6 +93,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import Column from './Column.vue'
+import Glossary from './Glossary.vue'
 import { useBoard } from '~/composables/useBoard'
 import { useColumns } from '~/composables/useColumns'
 import { useTasks } from '~/composables/useTasks'
@@ -313,7 +319,6 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
 
 <style scoped>
 .board {
-  min-height: 100vh;
   padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
   flex-direction: column;
@@ -328,21 +333,27 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
 .board__header {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-xl);
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-2xl);
   flex-wrap: wrap;
 }
 
 .board__name {
   font-size: var(--font-size-2xl);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
   color: var(--text-primary);
   cursor: pointer;
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--border-radius-sm);
-  transition: background-color var(--transition-fast);
+  transition: background-color var(--transition-base), transform var(--transition-fast);
   flex: 1;
   min-width: 200px;
+  letter-spacing: -0.02em;
+}
+
+.board__name:active {
+  transform: scale(0.98);
 }
 
 .board__name:hover {
@@ -352,10 +363,12 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
 .board__name-input {
   flex: 1;
   font-size: var(--font-size-2xl);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
   background: var(--bg-secondary);
   border: 2px solid var(--postit-blue);
   min-width: 200px;
+  letter-spacing: -0.02em;
 }
 
 .board__add-column {
@@ -363,20 +376,25 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
   background: var(--postit-blue);
   color: white;
   border-radius: var(--border-radius-md);
-  font-weight: 500;
-  transition: all var(--transition-fast);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-base);
   white-space: nowrap;
 }
 
 .board__add-column:hover {
   opacity: 0.9;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.board__add-column:active {
+  transform: translateY(0);
 }
 
 .board__columns-wrapper {
   flex: 1;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   padding-bottom: var(--spacing-md);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
@@ -390,16 +408,16 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
 
 .board__columns {
   display: flex;
-  gap: var(--spacing-md);
+  gap: var(--spacing-lg);
   align-items: flex-start;
   min-width: fit-content;
-  padding-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-md);
   width: 100%;
 }
 
 @media (max-width: 768px) {
   .board__columns {
-    gap: var(--spacing-sm);
+    gap: var(--spacing-md);
   }
 }
 
@@ -420,13 +438,13 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
   background: var(--bg-secondary);
   padding: var(--spacing-xl);
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
   min-width: 300px;
   max-width: 500px;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes fadeIn {
@@ -463,8 +481,8 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--border-radius-md);
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  transition: all var(--transition-fast);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-base);
 }
 
 .board__form-button--primary {
@@ -474,6 +492,12 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
 
 .board__form-button--primary:hover:not(:disabled) {
   opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.board__form-button--primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .board__form-button:not(.board__form-button--primary) {
@@ -484,6 +508,11 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
 
 .board__form-button:not(.board__form-button--primary):hover {
   background: var(--bg-primary);
+  border-color: var(--text-secondary);
+}
+
+.board__form-button:not(.board__form-button--primary):active {
+  transform: scale(0.98);
 }
 
 .board__loading,
@@ -499,9 +528,11 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
 
 .board__form-title {
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
   margin-bottom: var(--spacing-md);
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .board__form-error {

@@ -290,21 +290,25 @@ function handleTaskChange(event: any) {
   flex-direction: column;
   background: var(--bg-tertiary);
   border-radius: var(--border-radius-lg);
-  padding: var(--spacing-md);
+  padding: var(--spacing-lg);
   min-width: 280px;
   max-width: 320px;
   width: 100%;
   height: fit-content;
-  max-height: calc(100vh - 120px);
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-base);
+}
+
+.column:hover {
+  box-shadow: var(--shadow-md);
 }
 
 @media (max-width: 768px) {
   .column {
     min-width: 260px;
     max-width: 280px;
-    padding: var(--spacing-sm);
-    max-height: calc(100vh - 100px);
+    padding: var(--spacing-md);
   }
 }
 
@@ -312,19 +316,25 @@ function handleTaskChange(event: any) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--spacing-md);
-  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  gap: var(--spacing-md);
 }
 
 .column__title {
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
   color: var(--text-primary);
   flex: 1;
   cursor: pointer;
   padding: var(--spacing-xs);
   border-radius: var(--border-radius-sm);
-  transition: background-color var(--transition-fast);
+  transition: background-color var(--transition-base), transform var(--transition-fast);
+  letter-spacing: -0.01em;
+}
+
+.column__title:active {
+  transform: scale(0.98);
 }
 
 .column__title:hover {
@@ -334,9 +344,11 @@ function handleTaskChange(event: any) {
 .column__title-input {
   flex: 1;
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
   background: var(--bg-secondary);
   border: 2px solid var(--postit-blue);
+  letter-spacing: -0.01em;
 }
 
 .column__actions {
@@ -345,76 +357,79 @@ function handleTaskChange(event: any) {
 }
 
 .column__delete {
-  width: 24px;
-  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: rgba(239, 154, 154, 0.2);
-  color: #d32f2f;
-  font-size: 20px;
+  color: var(--text-tertiary);
+  font-size: 24px;
   line-height: 1;
-  transition: background-color var(--transition-fast);
+  transition: color var(--transition-base), transform var(--transition-base);
+  padding: var(--spacing-xs);
+  cursor: pointer;
 }
 
 .column__delete:hover {
-  background: rgba(239, 154, 154, 0.4);
+  color: #d32f2f;
+  transform: scale(1.3);
+}
+
+.column__delete:active {
+  transform: scale(1.1);
 }
 
 .column__tasks {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  min-height: 0;
-  max-height: calc(100vh - 300px);
-  padding-bottom: var(--spacing-sm);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  gap: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
   position: relative;
 }
 
 .column__tasks--empty {
-  overflow: hidden;
+  min-height: 60px;
 }
 
 @media (max-width: 768px) {
   .column__tasks {
-    max-height: calc(100vh - 250px);
-    min-height: 0;
+    min-height: 60px;
   }
 }
 
 .column__add-task {
-  margin-top: var(--spacing-md);
-  padding: var(--spacing-sm) var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--bg-secondary);
   border: 1px dashed var(--border-color);
   border-radius: var(--border-radius-md);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
-  transition: all var(--transition-fast);
+  transition: all var(--transition-base);
+  font-weight: var(--font-weight-medium);
 }
 
 .column__add-task:hover {
   background: var(--bg-primary);
   border-color: var(--postit-blue);
   color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.column__add-task:active {
+  transform: translateY(0);
 }
 
 .column__add-form {
-  margin-top: var(--spacing-md);
+  margin-top: var(--spacing-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md);
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
   background: var(--bg-secondary);
   border-radius: var(--border-radius-md);
   border: 1px solid var(--border-color);
-  animation: slideDown 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes slideDown {
@@ -444,16 +459,22 @@ function handleTaskChange(event: any) {
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
-  transition: transform var(--transition-fast), border-color var(--transition-fast);
+  transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .column__color-option:hover {
-  transform: scale(1.1);
+  transform: scale(1.15);
+  box-shadow: var(--shadow-sm);
+}
+
+.column__color-option:active {
+  transform: scale(1.05);
 }
 
 .column__color-option--active {
   border-color: var(--text-primary);
-  transform: scale(1.15);
+  transform: scale(1.2);
+  box-shadow: var(--shadow-md);
 }
 
 .column__color-option--clear {
@@ -477,8 +498,8 @@ function handleTaskChange(event: any) {
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--border-radius-md);
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  transition: all var(--transition-fast);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-base);
 }
 
 .column__form-button--primary {
@@ -488,6 +509,12 @@ function handleTaskChange(event: any) {
 
 .column__form-button--primary:hover:not(:disabled) {
   opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.column__form-button--primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .column__form-button:not(.column__form-button--primary) {
@@ -498,21 +525,23 @@ function handleTaskChange(event: any) {
 
 .column__form-button:not(.column__form-button--primary):hover {
   background: var(--bg-primary);
+  border-color: var(--text-secondary);
+}
+
+.column__form-button:not(.column__form-button--primary):active {
+  transform: scale(0.98);
 }
 
 .column__tasks-draggable {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  min-height: 0;
+  gap: var(--spacing-md);
   width: 100%;
-  flex: 1;
 }
 
 .column__tasks-draggable--empty {
   min-height: 60px;
   position: relative;
-  flex: 0 0 auto;
 }
 
 .column__form-error {
