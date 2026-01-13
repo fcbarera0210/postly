@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <PinGate
+    <LoginGate
       v-if="!isAuthenticated && !isLoading"
       @authenticated="handleAuthenticated"
     />
@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import PinGate from '~/components/PinGate.vue'
+import LoginGate from '~/components/LoginGate.vue'
 import Board from '~/components/Board.vue'
 import { useAuth } from '~/composables/useAuth'
 import { useBoard } from '~/composables/useBoard'
@@ -51,7 +51,7 @@ async function initializeBoard() {
     await loadBoard()
     boardLoaded.value = true
   } catch (err) {
-    // Si no hay board, el PinGate se encargará de crearlo
+    // Si no hay board, el LoginGate se encargará de crearlo al registrarse
     isAuthenticated.value = false
   }
 }

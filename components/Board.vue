@@ -17,12 +17,21 @@
       >
         {{ board?.name || 'Mi Tablero' }}
       </h1>
-      <button
-        class="board__add-column"
-        @click="showAddColumn = true"
-      >
-        + Columna
-      </button>
+      <div class="board__header-actions">
+        <button
+          class="board__add-column"
+          @click="showAddColumn = true"
+        >
+          + Columna
+        </button>
+        <button
+          class="board__logout"
+          @click="handleLogout"
+          title="Cerrar sesión"
+        >
+          Salir
+        </button>
+      </div>
     </div>
 
     <Glossary
@@ -97,6 +106,7 @@ import Glossary from './Glossary.vue'
 import { useBoard } from '~/composables/useBoard'
 import { useColumns } from '~/composables/useColumns'
 import { useTasks } from '~/composables/useTasks'
+import { useAuth } from '~/composables/useAuth'
 import type { Column as ColumnType, Task } from '~/utils/db'
 
 const { board, loadBoard, updateName } = useBoard()
@@ -104,6 +114,7 @@ const boardId = computed(() => board.value?.id || null)
 const { columns, loading: columnsLoading, canDelete: columnsCanDelete, loadColumns, create: createColumn, remove: removeColumn, update: updateColumn, reorder: reorderColumns } = useColumns(boardId)
 const loading = computed(() => columnsLoading.value)
 const { tasks, loadTasks, create: createTask, remove: removeTask, update: updateTask, move: moveTask, reorder: reorderTasks } = useTasks(boardId)
+const { logout } = useAuth()
 
 const isEditingName = ref(false)
 const editedName = ref('')
@@ -315,6 +326,12 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
     await loadTasks() // Recargar para restaurar estado
   }
 }
+
+function handleLogout() {
+  logout()
+  // Recargar la página para volver a la pantalla de login
+  window.location.reload()
+}
 </script>
 
 <style scoped>
@@ -371,14 +388,22 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
   letter-spacing: -0.02em;
 }
 
+.board__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .board__add-column {
   padding: var(--spacing-sm) var(--spacing-lg);
   background: var(--postit-blue);
   color: white;
+  border: none;
   border-radius: var(--border-radius-md);
   font-weight: var(--font-weight-medium);
   transition: all var(--transition-base);
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .board__add-column:hover {
@@ -388,6 +413,29 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
 }
 
 .board__add-column:active {
+  transform: translateY(0);
+}
+
+.board__logout {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.board__logout:hover {
+  background: var(--bg-primary);
+  border-color: var(--text-secondary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.board__logout:active {
   transform: translateY(0);
 }
 

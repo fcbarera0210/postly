@@ -84,10 +84,17 @@ export async function queryOne<T = any>(queryText: string, params?: any[]): Prom
 }
 
 // Tipos
+export interface User {
+  id: string
+  email: string
+  password_hash: string
+  created_at: number
+}
+
 export interface Board {
   id: string
   name: string
-  pin_hash: string
+  user_id: string
 }
 
 export interface Column {
@@ -114,14 +121,29 @@ export interface GlossaryItem {
   order: number
 }
 
-// Funciones CRUD para Board
-export async function getBoard(): Promise<Board | null> {
-  return queryOne<Board>('SELECT * FROM boards LIMIT 1')
+// Funciones CRUD para User
+export async function createUser(id: string, email: string, passwordHash: string): Promise<User> {
+  const createdAt = Date.now()
+  await query('INSERT INTO users (id, email, password_hash, created_at) VALUES ($1, $2, $3, $4)', [id, email, passwordHash, createdAt])
+  return { id, email, password_hash: passwordHash, created_at: createdAt }
 }
 
-export async function createBoard(id: string, name: string, pinHash: string): Promise<Board> {
-  await query('INSERT INTO boards (id, name, pin_hash) VALUES ($1, $2, $3)', [id, name, pinHash])
-  return { id, name, pin_hash: pinHash }
+export async function getUserByEmail(email: string): Promise<User | null> {
+  return queryOne<User>('SELECT * FROM users WHERE email = $1', [email])
+}
+
+export async function getUserById(id: string): Promise<User | null> {
+  return queryOne<User>('SELECT * FROM users WHERE id = $1', [id])
+}
+
+// Funciones CRUD para Board
+export async function getBoard(userId: string): Promise<Board | null> {
+  return queryOne<Board>('SELECT * FROM boards WHERE user_id = $1 LIMIT 1', [userId])
+}
+
+export async function createBoard(id: string, name: string, userId: string): Promise<Board> {
+  await query('INSERT INTO boards (id, name, user_id) VALUES ($1, $2, $3)', [id, name, userId])
+  return { id, name, user_id: userId }
 }
 
 export async function updateBoardName(id: string, name: string): Promise<void> {

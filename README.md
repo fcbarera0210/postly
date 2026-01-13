@@ -14,7 +14,9 @@ Postly es una aplicación personal tipo Trello para organizar tareas de forma vi
 - 🎨 **Post-its con colores** - Diferencia tareas con colores opcionales
 - 📚 **Glosario de colores** - Crea un glosario personalizado asociando nombres a colores
 - 🔄 **Drag & Drop** - Mueve tareas entre columnas o reordénalas fácilmente
-- 🔐 **Protección con PIN** - Acceso seguro con PIN local hasheado
+- 👤 **Autenticación por email/password** - Sistema de usuarios con registro e inicio de sesión
+- 🔒 **Tableros privados** - Cada usuario tiene su propio tablero aislado
+- 🚪 **Cerrar sesión** - Botón de logout para cambiar de cuenta
 - 🌙 **Modo oscuro** - Se adapta automáticamente a tu sistema
 - 📱 **Responsive** - Funciona perfectamente en desktop y móvil
 - ⚡ **Rápido y ligero** - Sin dependencias pesadas, solo lo esencial
@@ -50,9 +52,10 @@ DATABASE_URL="tu_url_de_conexion_de_neon"
 
 4. **Configurar la base de datos**
 
-Ejecutar el script SQL en tu base de datos Neon:
+Ejecutar los scripts SQL en tu base de datos Neon:
 - Abre el SQL Editor en Neon
-- Copia y ejecuta el contenido de `database/schema.sql`
+- Primero ejecuta el contenido de `database/schema.sql` (esquema base)
+- Luego ejecuta el contenido de `database/migration_users.sql` (sistema de usuarios)
 
 5. **Ejecutar en desarrollo**
 ```bash
@@ -98,18 +101,19 @@ postly/
 │   ├── Column.vue      # Columna de tareas
 │   ├── TaskCard.vue    # Tarjeta de tarea (post-it)
 │   ├── Glossary.vue    # Glosario de colores
-│   └── PinGate.vue     # Pantalla de autenticación con PIN
+│   └── LoginGate.vue   # Pantalla de autenticación (login/registro)
 ├── composables/        # Composables de Vue (lógica reutilizable)
 │   ├── useBoard.ts     # Gestión del tablero
 │   ├── useColumns.ts   # Gestión de columnas
 │   ├── useTasks.ts     # Gestión de tareas
 │   ├── useGlossary.ts  # Gestión del glosario de colores
-│   └── useAuth.ts      # Autenticación con PIN
+│   └── useAuth.ts      # Autenticación con email/password
 ├── database/           # Scripts SQL
-│   └── schema.sql      # Esquema de la base de datos
+│   ├── schema.sql      # Esquema base de la base de datos
+│   └── migration_users.sql # Migración para sistema de usuarios
 ├── utils/              # Utilidades
 │   ├── db.ts           # Conexión y queries a Neon
-│   └── security.ts     # Hash y verificación de PIN
+│   └── security.ts     # Hash y verificación de contraseñas
 ├── assets/             # Recursos estáticos
 │   └── styles/         # Estilos CSS
 │       ├── base.css    # Estilos base
@@ -122,9 +126,10 @@ postly/
 ## 🎯 Funcionalidades
 
 ### Tablero
-- ✅ Tablero único por instancia
+- ✅ Tablero único por usuario (cada usuario tiene su propio tablero)
 - ✅ Nombre editable del tablero (doble clic)
 - ✅ Persistencia entre dispositivos
+- ✅ Aislamiento completo de datos entre usuarios
 
 ### Columnas
 - ✅ Mínimo 3 columnas obligatorias
@@ -156,14 +161,17 @@ postly/
 - ✅ Mejor jerarquía tipográfica y contraste
 - ✅ Estados hover y feedback visual mejorados
 
-## 🔐 Seguridad
+## 🔐 Autenticación y Seguridad
 
-Postly utiliza un sistema de PIN simple para protección ligera:
+Postly utiliza un sistema de autenticación por email y contraseña:
 
-- El PIN se solicita al abrir la aplicación
-- Se guarda hasheado en la base de datos (SHA-256)
-- Protege contra accesos accidentales
-- **No es seguridad bancaria** - diseñado para uso personal
+- **Registro de usuarios**: Crea tu cuenta con email y contraseña
+- **Inicio de sesión**: Accede con tus credenciales
+- **Contraseñas seguras**: Hash con salt usando SHA-256
+- **Sesiones**: Válidas por 24 horas
+- **Aislamiento de datos**: Cada usuario tiene su propio tablero completamente aislado
+- **Cerrar sesión**: Botón de logout para cambiar de cuenta
+- **Validación**: Email y contraseña con validación de formato
 
 ## 🚀 Deploy
 
@@ -186,11 +194,19 @@ La aplicación es compatible con cualquier proveedor que soporte Nuxt 3:
 ### Estructura de datos
 
 ```typescript
+// User
+interface User {
+  id: string
+  email: string
+  password_hash: string
+  created_at: number
+}
+
 // Board
 interface Board {
   id: string
   name: string
-  pin_hash: string
+  user_id: string  // Relación con usuario
 }
 
 // Column
@@ -223,7 +239,17 @@ interface GlossaryItem {
 
 ## 🎨 Mejoras Recientes
 
-### Versión Actual
+### Versión Actual - Sistema de Usuarios
+
+**Nueva Funcionalidad - Autenticación por Email/Password:**
+- ✅ Sistema completo de registro e inicio de sesión
+- ✅ Autenticación segura con hash de contraseñas (SHA-256 con salt)
+- ✅ Cada usuario tiene su propio tablero completamente aislado
+- ✅ Sesiones válidas por 24 horas
+- ✅ Botón de logout para cerrar sesión
+- ✅ Validación de email y contraseña
+- ✅ Interfaz moderna con toggle entre login/registro
+- ✅ Creación automática de tablero inicial con columnas por defecto al registrarse
 
 **Mejoras UX/UI:**
 - Sistema de scroll mejorado: las columnas crecen dinámicamente y el scroll es de la página completa, evitando conflictos con drag & drop
@@ -236,12 +262,23 @@ interface GlossaryItem {
   - Jerarquía tipográfica mejorada
   - Estados hover y feedback visual refinados
 
-**Nueva Funcionalidad - Glosario de Colores:**
+**Funcionalidad - Glosario de Colores:**
 - Permite crear un glosario personalizado asociando nombres a colores de post-its
 - Visualización como badges con círculo de color y nombre
 - Edición inline con doble clic
 - Persistencia completa en base de datos
 - Integrado entre el título del tablero y las columnas
+
+## 🔄 Migración de Base de Datos
+
+Si estás actualizando desde una versión anterior con sistema PIN:
+
+1. **Backup de datos**: Realiza un backup de tu base de datos antes de migrar
+2. **Ejecutar migración**: Copia y ejecuta el contenido de `database/migration_users.sql` en el SQL Editor de Neon
+3. **Datos existentes**: Si tienes datos en boards, el script incluye opciones para migrarlos a un usuario
+4. **Nuevos usuarios**: Los nuevos usuarios deberán registrarse con email/password
+
+**Nota**: Esta migración elimina el sistema PIN y requiere que los usuarios se registren nuevamente.
 
 ## 📝 Licencia
 
