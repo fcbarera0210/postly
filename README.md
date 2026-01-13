@@ -21,6 +21,7 @@ Postly es una aplicación personal tipo Trello para organizar tareas de forma vi
 - 📱 **Responsive** - Funciona perfectamente en desktop y móvil
 - ⚡ **Rápido y ligero** - Sin dependencias pesadas, solo lo esencial
 - 🎨 **Diseño moderno** - Interfaz limpia con mejoras UX/UI
+- 👨‍💻 **Footer informativo** - Footer con créditos de desarrollo
 
 ## 🚀 Inicio Rápido
 
@@ -101,7 +102,8 @@ postly/
 │   ├── Column.vue      # Columna de tareas
 │   ├── TaskCard.vue    # Tarjeta de tarea (post-it)
 │   ├── Glossary.vue    # Glosario de colores
-│   └── LoginGate.vue   # Pantalla de autenticación (login/registro)
+│   ├── LoginGate.vue   # Pantalla de autenticación (login/registro)
+│   └── Footer.vue      # Footer con información de desarrollo
 ├── composables/        # Composables de Vue (lógica reutilizable)
 │   ├── useBoard.ts     # Gestión del tablero
 │   ├── useColumns.ts   # Gestión de columnas
@@ -268,6 +270,11 @@ interface GlossaryItem {
 - Edición inline con doble clic
 - Persistencia completa en base de datos
 - Integrado entre el título del tablero y las columnas
+
+**Mejoras de Interfaz:**
+- ✅ Footer con información de desarrollo y logo
+- ✅ Diseño responsive del footer
+- ✅ Integración del logo SVG inline para mejor rendimiento
 
 ## 🔄 Migración de Base de Datos
 
