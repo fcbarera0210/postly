@@ -20,6 +20,7 @@ body {
 }
 
 /* Scrollbars */
+/* Webkit (Chrome, Safari, Edge) - Aplica a ambas barras (vertical y horizontal) */
 ::-webkit-scrollbar {
   width: 12px;
   height: 12px;
@@ -27,6 +28,7 @@ body {
 
 ::-webkit-scrollbar-track {
   background: var(--bg-tertiary);
+  border-radius: var(--border-radius-sm);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -36,6 +38,12 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
+}
+
+/* Firefox - Aplica a ambas barras (vertical y horizontal) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) var(--bg-tertiary);
 }
 
 /* Focus states */

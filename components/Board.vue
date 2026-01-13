@@ -398,6 +398,25 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
   padding-bottom: var(--spacing-md);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
+  scrollbar-color: var(--border-color) var(--bg-tertiary);
+}
+
+.board__columns-wrapper::-webkit-scrollbar {
+  height: 12px;
+}
+
+.board__columns-wrapper::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: var(--border-radius-sm);
+}
+
+.board__columns-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--border-radius-sm);
+}
+
+.board__columns-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
 }
 
 @media (max-width: 768px) {
