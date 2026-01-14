@@ -25,6 +25,11 @@
   --postit-cyan: #80deea;
   --postit-default: #ffffff;
   
+  /* Colores de marca */
+  --brand-primary: #FF5A4D;
+  --brand-primary-hover: #FF6B5E;
+  --brand-primary-active: #E54A3D;
+  
   /* Espaciados */
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
@@ -89,5 +94,10 @@
     --postit-red: #e57373;
     --postit-cyan: #4dd0e1;
     --postit-default: #3a3a3a;
+    
+    /* Colores de marca en modo oscuro */
+    --brand-primary: #FF7A6D;
+    --brand-primary-hover: #FF8B7E;
+    --brand-primary-active: #FF6B5E;
   }
 }

@@ -347,7 +347,7 @@ function handleTaskChange(event: any) {
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
   background: var(--bg-secondary);
-  border: 2px solid var(--postit-blue);
+  border: 2px solid var(--brand-primary);
   letter-spacing: -0.01em;
 }
 
@@ -409,7 +409,7 @@ function handleTaskChange(event: any) {
 
 .column__add-task:hover {
   background: var(--bg-primary);
-  border-color: var(--postit-blue);
+  border-color: var(--brand-primary);
   color: var(--text-primary);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
@@ -503,17 +503,18 @@ function handleTaskChange(event: any) {
 }
 
 .column__form-button--primary {
-  background: var(--postit-blue);
+  background: var(--brand-primary);
   color: white;
 }
 
 .column__form-button--primary:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--brand-primary-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
 
 .column__form-button--primary:active:not(:disabled) {
+  background: var(--brand-primary-active);
   transform: translateY(0);
 }
 

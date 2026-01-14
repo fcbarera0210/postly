@@ -1,22 +1,29 @@
 <template>
   <div class="board">
     <div class="board__header">
-      <input
-        v-if="isEditingName"
-        v-model="editedName"
-        class="board__name-input"
-        @blur="handleNameSave"
-        @keyup.enter="handleNameSave"
-        @keyup.esc="cancelEdit"
-        ref="nameInputRef"
-      />
-      <h1
-        v-else
-        class="board__name"
-        @dblclick="startEditName"
-      >
-        {{ board?.name || 'Mi Tablero' }}
-      </h1>
+      <div class="board__header-title">
+        <img 
+          src="/logo-svg/Logo-Postly.svg" 
+          alt="Postly Logo" 
+          class="board__logo"
+        />
+        <input
+          v-if="isEditingName"
+          v-model="editedName"
+          class="board__name-input"
+          @blur="handleNameSave"
+          @keyup.enter="handleNameSave"
+          @keyup.esc="cancelEdit"
+          ref="nameInputRef"
+        />
+        <h1
+          v-else
+          class="board__name"
+          @dblclick="startEditName"
+        >
+          {{ board?.name || 'Mi Tablero' }}
+        </h1>
+      </div>
       <div class="board__header-actions">
         <button
           class="board__add-column"
@@ -355,6 +362,27 @@ function handleLogout() {
   flex-wrap: wrap;
 }
 
+.board__header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex: 1;
+  min-width: 200px;
+}
+
+.board__logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .board__logo {
+    height: 32px;
+  }
+}
+
 .board__name {
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
@@ -383,7 +411,7 @@ function handleLogout() {
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
   background: var(--bg-secondary);
-  border: 2px solid var(--postit-blue);
+  border: 2px solid var(--brand-primary);
   min-width: 200px;
   letter-spacing: -0.02em;
 }
@@ -396,7 +424,7 @@ function handleLogout() {
 
 .board__add-column {
   padding: var(--spacing-sm) var(--spacing-lg);
-  background: var(--postit-blue);
+  background: var(--brand-primary);
   color: white;
   border: none;
   border-radius: var(--border-radius-md);
@@ -407,12 +435,13 @@ function handleLogout() {
 }
 
 .board__add-column:hover {
-  opacity: 0.9;
+  background: var(--brand-primary-hover);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
 .board__add-column:active {
+  background: var(--brand-primary-active);
   transform: translateY(0);
 }
 
@@ -553,17 +582,18 @@ function handleLogout() {
 }
 
 .board__form-button--primary {
-  background: var(--postit-blue);
+  background: var(--brand-primary);
   color: white;
 }
 
 .board__form-button--primary:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--brand-primary-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
 
 .board__form-button--primary:active:not(:disabled) {
+  background: var(--brand-primary-active);
   transform: translateY(0);
 }
 

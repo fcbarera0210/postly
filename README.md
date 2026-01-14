@@ -119,7 +119,12 @@ postly/
 ├── assets/             # Recursos estáticos
 │   └── styles/         # Estilos CSS
 │       ├── base.css    # Estilos base
-│       └── variables.css # Variables CSS
+│       └── variables.css # Variables CSS (incluye colores de marca)
+├── public/             # Archivos públicos
+│   ├── logo-svg/       # Logos en formato SVG
+│   │   └── Logo-Postly.svg
+│   └── logo-png/       # Logos en formato PNG
+│       └── Logo-Postly.png
 ├── pages/              # Páginas de Nuxt
 │   └── index.vue       # Página principal
 └── app.vue             # Componente raíz
@@ -241,7 +246,25 @@ interface GlossaryItem {
 
 ## 🎨 Mejoras Recientes
 
-### Versión Actual - Sistema de Usuarios
+### Versión Actual - Branding y Diseño
+
+**Nueva Identidad Visual:**
+- ✅ Logo de Postly integrado en toda la aplicación
+- ✅ Logo en el header del tablero (izquierda del nombre)
+- ✅ Logo prominente en la página de login
+- ✅ Favicon personalizado con el logo
+- ✅ Meta tags Open Graph configurados para compartir URLs
+- ✅ Sistema de colores de marca alineado con el logo (#FF5A4D)
+- ✅ Variables CSS para colores de marca con estados hover/active
+- ✅ Soporte para modo claro y oscuro con variantes de color optimizadas
+
+**Sistema de Colores:**
+- Color principal de marca: `#FF5A4D` (del logo)
+- Estados interactivos: hover y active con variaciones del color de marca
+- Colores de post-its mantenidos independientes (amarillo, rosa, azul, verde, etc.)
+- Mejor contraste y accesibilidad en ambos modos (claro/oscuro)
+
+### Versión Anterior - Sistema de Usuarios
 
 **Nueva Funcionalidad - Autenticación por Email/Password:**
 - ✅ Sistema completo de registro e inicio de sesión

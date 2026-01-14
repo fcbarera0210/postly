@@ -272,7 +272,7 @@ watch(showAddForm, (show) => {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   background: var(--bg-primary);
-  border: 2px solid var(--postit-blue);
+  border: 2px solid var(--brand-primary);
   border-radius: var(--border-radius-sm);
   padding: var(--spacing-xs) var(--spacing-sm);
   min-width: 100px;
@@ -324,7 +324,7 @@ watch(showAddForm, (show) => {
 
 .glossary__add:hover {
   background: var(--bg-primary);
-  border-color: var(--postit-blue);
+  border-color: var(--brand-primary);
   color: var(--text-primary);
   transform: scale(1.1);
 }
@@ -444,17 +444,18 @@ watch(showAddForm, (show) => {
 }
 
 .glossary__form-button--primary {
-  background: var(--postit-blue);
+  background: var(--brand-primary);
   color: white;
 }
 
 .glossary__form-button--primary:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--brand-primary-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
 
 .glossary__form-button--primary:active:not(:disabled) {
+  background: var(--brand-primary-active);
   transform: translateY(0);
 }
 

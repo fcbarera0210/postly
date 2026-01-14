@@ -214,7 +214,7 @@ async function handleSubmit() {
 
 .pin-gate__button {
   width: 100%;
-  background: var(--postit-blue);
+  background: var(--brand-primary);
   color: white;
   padding: var(--spacing-md);
   border-radius: var(--border-radius-md);
@@ -224,12 +224,12 @@ async function handleSubmit() {
 }
 
 .pin-gate__button:hover:not(:disabled) {
-  background: var(--postit-blue);
-  opacity: 0.9;
+  background: var(--brand-primary-hover);
   transform: translateY(-1px);
 }
 
 .pin-gate__button:active:not(:disabled) {
+  background: var(--brand-primary-active);
   transform: translateY(0);
 }
 

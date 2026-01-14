@@ -1,8 +1,13 @@
 <template>
   <div class="login-gate">
     <div class="login-gate__container">
-      <h1 class="login-gate__title">Postly</h1>
-      <p class="login-gate__subtitle">Tareas simples, mente clara</p>
+      <div class="login-gate__logo-container">
+        <img 
+          src="/logo-svg/Logo-Postly.svg" 
+          alt="Postly Logo" 
+          class="login-gate__logo"
+        />
+      </div>
       
       <div class="login-gate__tabs">
         <button
@@ -200,6 +205,24 @@ async function handleSubmit() {
   }
 }
 
+.login-gate__logo-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--spacing-xl);
+}
+
+.login-gate__logo {
+  height: 100px;
+  width: auto;
+  object-fit: contain;
+}
+
+@media (max-width: 768px) {
+  .login-gate__logo {
+    height: 80px;
+  }
+}
+
 .login-gate__title {
   font-size: var(--font-size-2xl);
   font-weight: 700;
@@ -240,8 +263,8 @@ async function handleSubmit() {
 }
 
 .login-gate__tab--active {
-  color: var(--postit-blue);
-  border-bottom-color: var(--postit-blue);
+  color: var(--brand-primary);
+  border-bottom-color: var(--brand-primary);
 }
 
 .login-gate__form {
@@ -284,7 +307,7 @@ async function handleSubmit() {
 
 .login-gate__input:focus {
   outline: none;
-  border-color: var(--postit-blue);
+  border-color: var(--brand-primary);
 }
 
 .login-gate__input:disabled {
@@ -300,7 +323,7 @@ async function handleSubmit() {
 
 .login-gate__button {
   width: 100%;
-  background: var(--postit-blue);
+  background: var(--brand-primary);
   color: white;
   padding: var(--spacing-md);
   border: none;
@@ -312,11 +335,12 @@ async function handleSubmit() {
 }
 
 .login-gate__button:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--brand-primary-hover);
   transform: translateY(-1px);
 }
 
 .login-gate__button:active:not(:disabled) {
+  background: var(--brand-primary-active);
   transform: translateY(0);
 }
 
