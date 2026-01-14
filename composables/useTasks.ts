@@ -44,14 +44,32 @@ export function useTasks(boardId: Ref<string | null> | ComputedRef<string | null
     loading.value = true
     error.value = null
     try {
-      // Obtener el máximo order de las tareas en esta columna
-      const columnTasks = tasks.value.filter(t => t.column_id === columnId)
-      const maxOrder = columnTasks.length > 0 
-        ? Math.max(...columnTasks.map(t => t.order)) 
-        : -1
-      const newOrder = maxOrder + 1
-
+      // Crear nueva tarea con order = 0 (al inicio)
+      const newOrder = 0
       const newTask = await createTask(nanoid(), columnId, title, color, newOrder)
+      
+      // Obtener todas las tareas existentes en esta columna (excepto la nueva)
+      const columnTasks = tasks.value.filter(t => t.column_id === columnId && t.id !== newTask.id)
+      
+      // Si hay tareas existentes, incrementar su order en +1
+      if (columnTasks.length > 0) {
+        const updates = columnTasks.map(task => ({
+          id: task.id,
+          order: task.order + 1
+        }))
+        
+        // Actualizar el orden en la base de datos
+        await reorderTasks(updates)
+        
+        // Actualizar el orden localmente
+        updates.forEach(({ id, order }) => {
+          const task = tasks.value.find(t => t.id === id)
+          if (task) {
+            task.order = order
+          }
+        })
+      }
+      
       tasks.value.push(newTask)
       return newTask
     } catch (err) {

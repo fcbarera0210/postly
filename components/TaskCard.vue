@@ -10,13 +10,14 @@
         v-if="isEditing"
         v-model="editedTitle"
         class="task-card__title-input"
+        :style="{ color: cardStyle.color }"
         @blur="handleInputBlur"
         @keyup.enter="handleSave"
         @keyup.esc="cancelEdit"
         @click.stop
         ref="titleInputRef"
       />
-      <p v-else class="task-card__title">{{ task.title }}</p>
+      <p v-else class="task-card__title" :style="{ color: cardStyle.color }">{{ task.title }}</p>
     </div>
     <div 
       v-if="isEditing" 
@@ -78,6 +79,94 @@ const selectedColor = ref<string | null>(null)
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const colorPickerRef = ref<HTMLDivElement | null>(null)
 const isClickingColor = ref(false)
+
+// Función para obtener el valor RGB de una variable CSS
+function getCSSVariableValue(variableName: string): string {
+  if (typeof window === 'undefined') return '#ffffff'
+  return getComputedStyle(document.documentElement).getPropertyValue(variableName).trim()
+}
+
+// Función para convertir hex a RGB
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  // Remover # si existe
+  hex = hex.replace('#', '')
+  
+  // Si es formato corto (3 caracteres), expandir
+  if (hex.length === 3) {
+    hex = hex.split('').map(char => char + char).join('')
+  }
+  
+  if (hex.length !== 6) return null
+  
+  const r = parseInt(hex.substring(0, 2), 16)
+  const g = parseInt(hex.substring(2, 4), 16)
+  const b = parseInt(hex.substring(4, 6), 16)
+  
+  return { r, g, b }
+}
+
+// Función para calcular la luminosidad relativa (WCAG)
+function getLuminance(r: number, g: number, b: number): number {
+  // Normalizar valores RGB a 0-1
+  const [rs, gs, bs] = [r, g, b].map(val => {
+    val = val / 255
+    return val <= 0.03928 ? val / 12.92 : Math.pow((val + 0.055) / 1.055, 2.4)
+  })
+  
+  // Fórmula de luminosidad relativa
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs
+}
+
+// Función para obtener el color de texto óptimo según el fondo
+function getContrastColor(backgroundColor: string): string {
+  if (!backgroundColor) return 'var(--text-primary)'
+  
+  let rgb: { r: number; g: number; b: number } | null = null
+  
+  // Si es una variable CSS, obtener su valor
+  if (backgroundColor.startsWith('var(')) {
+    const varName = backgroundColor.match(/var\(([^)]+)\)/)?.[1]
+    if (varName) {
+      const cssValue = getCSSVariableValue(varName)
+      // Si el valor CSS es un hex, convertir
+      if (cssValue.startsWith('#')) {
+        rgb = hexToRgb(cssValue)
+      } else if (cssValue.startsWith('rgb')) {
+        // Extraer valores RGB de rgb() o rgba()
+        const matches = cssValue.match(/\d+/g)
+        if (matches && matches.length >= 3) {
+          rgb = {
+            r: parseInt(matches[0], 10),
+            g: parseInt(matches[1], 10),
+            b: parseInt(matches[2], 10)
+          }
+        }
+      }
+    }
+  } else if (backgroundColor.startsWith('#')) {
+    // Si es un hex directo
+    rgb = hexToRgb(backgroundColor)
+  } else if (backgroundColor.startsWith('rgb')) {
+    // Si es rgb() o rgba()
+    const matches = backgroundColor.match(/\d+/g)
+    if (matches && matches.length >= 3) {
+      rgb = {
+        r: parseInt(matches[0], 10),
+        g: parseInt(matches[1], 10),
+        b: parseInt(matches[2], 10)
+      }
+    }
+  }
+  
+  // Si no pudimos obtener RGB, usar color por defecto
+  if (!rgb) return 'var(--text-primary)'
+  
+  // Calcular luminosidad
+  const luminance = getLuminance(rgb.r, rgb.g, rgb.b)
+  
+  // Si la luminosidad es mayor a 0.5, usar texto oscuro; si no, texto claro
+  return luminance > 0.5 ? '#1a1a1a' : '#f5f5f5'
+}
 
 const availableColors = [
   { value: 'yellow', label: 'Amarillo', bg: 'var(--postit-yellow)' },
@@ -146,8 +235,6 @@ const colorClass = computed(() => {
 })
 
 const cardStyle = computed(() => {
-  if (!props.task.color) return {}
-  
   const colorMap: Record<string, string> = {
     yellow: 'var(--postit-yellow)',
     pink: 'var(--postit-pink)',
@@ -160,9 +247,15 @@ const cardStyle = computed(() => {
     default: 'var(--postit-default)'
   }
 
-  const bgColor = colorMap[props.task.color] || colorMap.default
+  const bgColor = props.task.color 
+    ? (colorMap[props.task.color] || colorMap.default)
+    : colorMap.default
+  
+  const textColor = getContrastColor(bgColor)
+  
   return {
-    backgroundColor: bgColor
+    backgroundColor: bgColor,
+    color: textColor
   }
 })
 </script>
