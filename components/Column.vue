@@ -14,6 +14,9 @@
         v-else
         class="column__title"
         @dblclick="startEditTitle"
+        @touchstart.stop="handleTouchStart"
+        @touchend.stop="handleTouchEnd"
+        @touchmove.stop="handleTouchMove"
       >
         {{ column.title }}
       </h2>
@@ -145,6 +148,10 @@ const newTaskTitle = ref('')
 const selectedColor = ref<string | null>(null)
 const taskInputRef = ref<HTMLInputElement | null>(null)
 
+// Long press para móvil
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+const LONG_PRESS_DURATION = 500 // ms
+
 const localTasks = ref<Task[]>([])
 
 // Watch para sincronizar props.tasks con localTasks
@@ -209,6 +216,35 @@ function handleTitleSave() {
 function cancelEdit() {
   isEditingTitle.value = false
   editedTitle.value = props.column.title
+}
+
+// Handlers para long press en móvil
+function handleTouchStart(e: TouchEvent) {
+  // Solo activar si no está en modo edición
+  if (isEditingTitle.value) return
+  
+  // Prevenir zoom accidental
+  e.preventDefault()
+  
+  longPressTimer = setTimeout(() => {
+    startEditTitle()
+    longPressTimer = null
+  }, LONG_PRESS_DURATION)
+}
+
+function handleTouchEnd() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+function handleTouchMove() {
+  // Cancelar si el usuario mueve el dedo
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
 }
 
 function handleAddTask() {

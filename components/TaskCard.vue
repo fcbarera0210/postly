@@ -4,6 +4,9 @@
     :class="[`task-card--${colorClass}`, { 'is-editing': isEditing }]"
     :style="cardStyle"
     @dblclick.stop="startEdit"
+    @touchstart.stop="handleTouchStart"
+    @touchend.stop="handleTouchEnd"
+    @touchmove.stop="handleTouchMove"
   >
     <div class="task-card__content">
       <input
@@ -79,6 +82,10 @@ const selectedColor = ref<string | null>(null)
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const colorPickerRef = ref<HTMLDivElement | null>(null)
 const isClickingColor = ref(false)
+
+// Long press para móvil
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+const LONG_PRESS_DURATION = 500 // ms
 
 // Función para obtener el valor RGB de una variable CSS
 function getCSSVariableValue(variableName: string): string {
@@ -227,6 +234,35 @@ function cancelEdit() {
   editedTitle.value = props.task.title
   selectedColor.value = props.task.color
   isEditing.value = false
+}
+
+// Handlers para long press en móvil
+function handleTouchStart(e: TouchEvent) {
+  // Solo activar si no está en modo edición
+  if (isEditing.value) return
+  
+  // Prevenir zoom accidental
+  e.preventDefault()
+  
+  longPressTimer = setTimeout(() => {
+    startEdit()
+    longPressTimer = null
+  }, LONG_PRESS_DURATION)
+}
+
+function handleTouchEnd() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+function handleTouchMove() {
+  // Cancelar si el usuario mueve el dedo (probablemente está arrastrando)
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
 }
 
 const colorClass = computed(() => {

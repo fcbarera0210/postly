@@ -84,6 +84,7 @@ npm run generate     # Genera una versión estática
 - **Vue 3** - Composition API
 - **TypeScript** - Tipado estático
 - **vuedraggable** - Drag & drop entre columnas
+- **Heroicons** - Librería de iconos SVG gratuita
 - **CSS puro** - Sin frameworks CSS, control total del diseño
 
 ### Backend/Base de Datos
@@ -134,30 +135,32 @@ postly/
 
 ### Tablero
 - ✅ Tablero único por usuario (cada usuario tiene su propio tablero)
-- ✅ Nombre editable del tablero (doble clic)
+- ✅ Nombre editable del tablero (doble clic en desktop, long press en móvil)
 - ✅ Persistencia entre dispositivos
 - ✅ Aislamiento completo de datos entre usuarios
+- ✅ Iconos modernos para acciones (agregar columna, cerrar sesión)
 
 ### Columnas
 - ✅ Mínimo 3 columnas obligatorias
 - ✅ Crear nuevas columnas
 - ✅ Eliminar columnas (respetando mínimo)
-- ✅ Editar nombre de columnas (doble clic)
+- ✅ Editar nombre de columnas (doble clic en desktop, long press en móvil)
 - ✅ Reordenar columnas (drag & drop)
 
 ### Tareas
 - ✅ Crear tareas con título
 - ✅ Asignar color opcional a tareas
-- ✅ Editar tareas (doble clic)
+- ✅ Editar tareas (doble clic en desktop, long press en móvil)
 - ✅ Eliminar tareas
 - ✅ Mover tareas entre columnas (drag & drop)
 - ✅ Reordenar tareas dentro de columnas
 
 ### Glosario de Colores
 - ✅ Crear elementos del glosario asociando nombres a colores
-- ✅ Editar nombres de elementos (doble clic)
+- ✅ Editar nombres de elementos (doble clic en desktop, long press en móvil)
 - ✅ Eliminar elementos del glosario
 - ✅ Visualización como badges con círculo de color y nombre
+- ✅ Scroll horizontal en mobile sin mostrar barra de scroll
 - ✅ Persistencia en base de datos
 
 ### Mejoras UX/UI
@@ -246,7 +249,24 @@ interface GlossaryItem {
 
 ## 🎨 Mejoras Recientes
 
-### Versión Actual - Branding y Diseño
+### Versión Actual - Mejoras Mobile y UX
+
+**Mejoras Mobile:**
+- ✅ **Edición con long press**: En dispositivos móviles, mantén presionado cualquier elemento editable (tareas, columnas, tablero, glosario) para entrar en modo edición, evitando el problema del zoom con doble tap
+- ✅ **Glosario horizontal**: En mobile, el glosario se muestra en scroll horizontal sin mostrar la barra de scroll para mejor experiencia
+- ✅ **Footer optimizado**: Footer adaptado para mobile manteniendo todo en una sola línea
+- ✅ **Iconos modernos**: Botones del header convertidos a iconos usando Heroicons (PlusIcon y ArrowRightOnRectangleIcon)
+- ✅ **Header compacto**: Botones de acción alineados horizontalmente con logo y título del tablero
+
+**Mejoras de Accesibilidad:**
+- ✅ Colores del footer adaptativos al tema (claro/oscuro) usando variables CSS
+- ✅ Iconos con aria-labels para mejor accesibilidad
+- ✅ Soporte completo de touch events para dispositivos móviles
+
+**Stack Actualizado:**
+- ✅ **Heroicons** - Librería de iconos gratuita y moderna
+
+### Versión Anterior - Branding y Diseño
 
 **Nueva Identidad Visual:**
 - ✅ Logo de Postly integrado en toda la aplicación

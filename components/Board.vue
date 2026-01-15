@@ -20,24 +20,30 @@
           v-else
           class="board__name"
           @dblclick="startEditName"
+          @touchstart.stop="handleTouchStart"
+          @touchend.stop="handleTouchEnd"
+          @touchmove.stop="handleTouchMove"
         >
           {{ board?.name || 'Mi Tablero' }}
         </h1>
-      </div>
-      <div class="board__header-actions">
-        <button
-          class="board__add-column"
-          @click="showAddColumn = true"
-        >
-          + Columna
-        </button>
-        <button
-          class="board__logout"
-          @click="handleLogout"
-          title="Cerrar sesión"
-        >
-          Salir
-        </button>
+        <div class="board__header-actions">
+          <button
+            class="board__add-column-icon"
+            @click="showAddColumn = true"
+            aria-label="Agregar columna"
+            title="Agregar columna"
+          >
+            <PlusIcon />
+          </button>
+          <button
+            class="board__logout-icon"
+            @click="handleLogout"
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+          >
+            <ArrowRightOnRectangleIcon />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -108,6 +114,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { PlusIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
 import Column from './Column.vue'
 import Glossary from './Glossary.vue'
 import { useBoard } from '~/composables/useBoard'
@@ -129,6 +136,10 @@ const nameInputRef = ref<HTMLInputElement | null>(null)
 const showAddColumn = ref(false)
 const newColumnTitle = ref('')
 const columnInputRef = ref<HTMLInputElement | null>(null)
+
+// Long press para móvil
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+const LONG_PRESS_DURATION = 500 // ms
 
 const localColumns = ref<ColumnType[]>([])
 
@@ -199,6 +210,35 @@ function handleNameSave() {
 function cancelEdit() {
   isEditingName.value = false
   editedName.value = board.value?.name || ''
+}
+
+// Handlers para long press en móvil
+function handleTouchStart(e: TouchEvent) {
+  // Solo activar si no está en modo edición
+  if (isEditingName.value) return
+  
+  // Prevenir zoom accidental
+  e.preventDefault()
+  
+  longPressTimer = setTimeout(() => {
+    startEditName()
+    longPressTimer = null
+  }, LONG_PRESS_DURATION)
+}
+
+function handleTouchEnd() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+function handleTouchMove() {
+  // Cancelar si el usuario mueve el dedo
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
 }
 
 async function handleAddColumn() {
@@ -420,52 +460,75 @@ function handleLogout() {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
-.board__add-column {
-  padding: var(--spacing-sm) var(--spacing-lg);
+.board__add-column-icon,
+.board__logout-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--border-radius-md);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.board__add-column-icon svg,
+.board__logout-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.board__add-column-icon {
   background: var(--brand-primary);
   color: white;
   border: none;
-  border-radius: var(--border-radius-md);
-  font-weight: var(--font-weight-medium);
-  transition: all var(--transition-base);
-  white-space: nowrap;
-  cursor: pointer;
 }
 
-.board__add-column:hover {
+.board__add-column-icon:hover {
   background: var(--brand-primary-hover);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
-.board__add-column:active {
+.board__add-column-icon:active {
   background: var(--brand-primary-active);
   transform: translateY(0);
 }
 
-.board__logout {
-  padding: var(--spacing-sm) var(--spacing-lg);
+.board__logout-icon {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-md);
-  font-weight: var(--font-weight-medium);
-  transition: all var(--transition-base);
-  white-space: nowrap;
-  cursor: pointer;
 }
 
-.board__logout:hover {
+.board__logout-icon:hover {
   background: var(--bg-primary);
   border-color: var(--text-secondary);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
-.board__logout:active {
+.board__logout-icon:active {
   transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .board__add-column-icon,
+  .board__logout-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .board__add-column-icon svg,
+  .board__logout-icon svg {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 .board__columns-wrapper {

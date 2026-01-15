@@ -17,7 +17,14 @@
           @keyup.esc="cancelEdit"
           ref="editInputRef"
         />
-        <div v-else class="glossary__badge-content" @dblclick="startEdit(item)">
+        <div 
+          v-else 
+          class="glossary__badge-content" 
+          @dblclick="startEdit(item)"
+          @touchstart.stop="handleTouchStart(item, $event)"
+          @touchend.stop="handleTouchEnd"
+          @touchmove.stop="handleTouchMove"
+        >
           <span
             class="glossary__badge-color"
             :style="{ backgroundColor: getColorBg(item.color) }"
@@ -107,6 +114,11 @@ const editingItemId = ref<string | null>(null)
 const editedName = ref('')
 const editInputRef = ref<HTMLInputElement | null>(null)
 
+// Long press para móvil
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressItem: GlossaryItem | null = null
+const LONG_PRESS_DURATION = 500 // ms
+
 const availableColors = [
   { value: 'yellow', label: 'Amarillo', bg: 'var(--postit-yellow)' },
   { value: 'pink', label: 'Rosa', bg: 'var(--postit-pink)' },
@@ -179,6 +191,41 @@ function cancelEdit() {
   editedName.value = ''
 }
 
+// Handlers para long press en móvil
+function handleTouchStart(item: GlossaryItem, e: TouchEvent) {
+  // Solo activar si no está en modo edición
+  if (editingItemId.value === item.id) return
+  
+  // Prevenir zoom accidental
+  e.preventDefault()
+  
+  longPressItem = item
+  longPressTimer = setTimeout(() => {
+    if (longPressItem) {
+      startEdit(longPressItem)
+      longPressItem = null
+    }
+    longPressTimer = null
+  }, LONG_PRESS_DURATION)
+}
+
+function handleTouchEnd() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+    longPressItem = null
+  }
+}
+
+function handleTouchMove() {
+  // Cancelar si el usuario mueve el dedo
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+    longPressItem = null
+  }
+}
+
 async function handleDelete(itemId: string) {
   if (!confirm('¿Estás seguro de que quieres eliminar este elemento del glosario?')) {
     return
@@ -227,6 +274,38 @@ watch(showAddForm, (show) => {
   align-items: center;
   gap: var(--spacing-md);
   flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .glossary {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .glossary::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+  
+  .glossary__items {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+  
+  .glossary__label {
+    flex-shrink: 0;
+  }
+  
+  .glossary__badge {
+    flex-shrink: 0;
+  }
+  
+  .glossary__add {
+    flex-shrink: 0;
+  }
 }
 
 .glossary__badge {
