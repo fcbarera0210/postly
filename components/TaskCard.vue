@@ -4,9 +4,9 @@
     :class="[`task-card--${colorClass}`, { 'is-editing': isEditing }]"
     :style="cardStyle"
     @dblclick.stop="startEdit"
-    @touchstart.stop="handleTouchStart"
-    @touchend.stop="handleTouchEnd"
-    @touchmove.stop="handleTouchMove"
+    @touchstart="handleTouchStart"
+    @touchend="handleTouchEnd"
+    @touchmove="handleTouchMove"
   >
     <div class="task-card__content">
       <input
@@ -14,7 +14,6 @@
         v-model="editedTitle"
         class="task-card__title-input"
         :style="{ color: cardStyle.color }"
-        @blur="handleInputBlur"
         @keyup.enter="handleSave"
         @keyup.esc="cancelEdit"
         @click.stop
@@ -24,34 +23,57 @@
     </div>
     <div 
       v-if="isEditing" 
-      class="task-card__color-picker" 
-      @click.stop.prevent
-      @mousedown.stop.prevent
-      ref="colorPickerRef"
+      class="task-card__edit-actions"
     >
-      <button
-        v-for="color in availableColors"
-        :key="color.value"
-        type="button"
-        class="task-card__color-option"
-        :class="{ 'task-card__color-option--active': selectedColor === color.value }"
-        :style="{ backgroundColor: color.bg }"
-        @click.stop.prevent="handleColorSelect(color.value)"
+      <div 
+        class="task-card__color-picker" 
+        @click.stop.prevent
         @mousedown.stop.prevent
-        :title="color.label"
-        :aria-label="`Color ${color.label}`"
-      />
-      <button
-        type="button"
-        class="task-card__color-option task-card__color-option--clear"
-        :class="{ 'task-card__color-option--active': selectedColor === null }"
-        @click.stop.prevent="handleColorSelect(null)"
-        @mousedown.stop.prevent
-        title="Sin color"
-        aria-label="Sin color"
+        ref="colorPickerRef"
       >
-        ×
-      </button>
+        <button
+          v-for="color in availableColors"
+          :key="color.value"
+          type="button"
+          class="task-card__color-option"
+          :class="{ 'task-card__color-option--active': selectedColor === color.value }"
+          :style="{ backgroundColor: color.bg }"
+          @click.stop.prevent="handleColorSelect(color.value)"
+          @touchstart.stop.prevent="handleColorSelect(color.value)"
+          @mousedown.stop.prevent
+          :title="color.label"
+          :aria-label="`Color ${color.label}`"
+        />
+        <button
+          type="button"
+          class="task-card__color-option task-card__color-option--clear"
+          :class="{ 'task-card__color-option--active': selectedColor === null }"
+          @click.stop.prevent="handleColorSelect(null)"
+          @touchstart.stop.prevent="handleColorSelect(null)"
+          @mousedown.stop.prevent
+          title="Sin color"
+          aria-label="Sin color"
+        >
+          ×
+        </button>
+      </div>
+      <div class="task-card__form-actions">
+        <button
+          class="task-card__form-button task-card__form-button--primary"
+          @click.stop.prevent="handleSave"
+          @touchstart.stop.prevent="(e) => { e.preventDefault(); handleSave(); }"
+          :disabled="!editedTitle.trim() || editedTitle.trim().length < 3"
+        >
+          Guardar
+        </button>
+        <button
+          class="task-card__form-button"
+          @click.stop.prevent="cancelEdit"
+          @touchstart.stop.prevent="(e) => { e.preventDefault(); cancelEdit(); }"
+        >
+          Cancelar
+        </button>
+      </div>
     </div>
     <button
       class="task-card__delete"
@@ -81,11 +103,14 @@ const editedTitle = ref('')
 const selectedColor = ref<string | null>(null)
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const colorPickerRef = ref<HTMLDivElement | null>(null)
-const isClickingColor = ref(false)
 
 // Long press para móvil
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let touchStartX = 0
+let touchStartY = 0
+let hasMoved = false
 const LONG_PRESS_DURATION = 500 // ms
+const MOVE_THRESHOLD = 10 // píxeles de movimiento para considerar drag
 
 // Función para obtener el valor RGB de una variable CSS
 function getCSSVariableValue(variableName: string): string {
@@ -197,37 +222,20 @@ function startEdit() {
 }
 
 function handleSave() {
-  if (editedTitle.value.trim() && (editedTitle.value !== props.task.title || selectedColor.value !== props.task.color)) {
-    emit('update', props.task.id, {
-      title: editedTitle.value.trim(),
-      color: selectedColor.value
-    })
+  if (editedTitle.value.trim() && editedTitle.value.trim().length >= 3) {
+    if (editedTitle.value !== props.task.title || selectedColor.value !== props.task.color) {
+      emit('update', props.task.id, {
+        title: editedTitle.value.trim(),
+        color: selectedColor.value
+      })
+    }
   }
   isEditing.value = false
 }
 
-function handleInputBlur(event: FocusEvent) {
-  // Esperar un momento para verificar si el blur fue causado por un clic en el color picker
-  setTimeout(() => {
-    if (!isClickingColor.value) {
-      handleSave()
-    } else {
-      isClickingColor.value = false
-      // Re-enfocar el input
-      nextTick(() => {
-        titleInputRef.value?.focus()
-      })
-    }
-  }, 150)
-}
-
 function handleColorSelect(color: string | null) {
-  isClickingColor.value = true
   selectedColor.value = color
-  // No cerrar el editor, solo actualizar el color
-  nextTick(() => {
-    isClickingColor.value = false
-  })
+  // No cerrar el editor, solo actualizar el color visualmente
 }
 
 function cancelEdit() {
@@ -239,13 +247,32 @@ function cancelEdit() {
 // Handlers para long press en móvil
 function handleTouchStart(e: TouchEvent) {
   // Solo activar si no está en modo edición
-  if (isEditing.value) return
+  if (isEditing.value) {
+    // Permitir que los eventos touch pasen a los elementos hijos cuando está editando
+    return
+  }
   
-  // Prevenir zoom accidental
-  e.preventDefault()
+  // Si el touch es en un botón o elemento interactivo, no hacer nada
+  const target = e.target as HTMLElement
+  if (target.closest('.task-card__form-button') || 
+      target.closest('.task-card__color-option') ||
+      target.closest('.task-card__edit-actions')) {
+    return
+  }
   
+  // Guardar posición inicial
+  const touch = e.touches[0]
+  touchStartX = touch.clientX
+  touchStartY = touch.clientY
+  hasMoved = false
+  
+  // Iniciar timer para long press
   longPressTimer = setTimeout(() => {
-    startEdit()
+    // Solo activar edición si no se ha movido
+    if (!hasMoved) {
+      e.preventDefault() // Prevenir zoom solo cuando se activa el long press
+      startEdit()
+    }
     longPressTimer = null
   }, LONG_PRESS_DURATION)
 }
@@ -255,13 +282,22 @@ function handleTouchEnd() {
     clearTimeout(longPressTimer)
     longPressTimer = null
   }
+  hasMoved = false
 }
 
-function handleTouchMove() {
-  // Cancelar si el usuario mueve el dedo (probablemente está arrastrando)
-  if (longPressTimer) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
+function handleTouchMove(e: TouchEvent) {
+  // Si hay movimiento, cancelar el long press y permitir drag & drop
+  if (longPressTimer && e.touches.length > 0) {
+    const touch = e.touches[0]
+    const deltaX = Math.abs(touch.clientX - touchStartX)
+    const deltaY = Math.abs(touch.clientY - touchStartY)
+    
+    // Si el movimiento supera el umbral, es un drag
+    if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
+      hasMoved = true
+      clearTimeout(longPressTimer)
+      longPressTimer = null
+    }
   }
 }
 
@@ -378,10 +414,19 @@ const cardStyle = computed(() => {
   resize: none;
 }
 
+.task-card__edit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  position: relative;
+  z-index: 20;
+  touch-action: manipulation;
+}
+
 .task-card__color-picker {
   display: flex;
   gap: var(--spacing-xs);
-  margin-top: var(--spacing-sm);
   flex-wrap: wrap;
   padding: var(--spacing-xs);
   background: rgba(255, 255, 255, 0.2);
@@ -400,8 +445,9 @@ const cardStyle = computed(() => {
   transition: all var(--transition-base);
   flex-shrink: 0;
   position: relative;
-  z-index: 11;
+  z-index: 21;
   pointer-events: auto;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -459,5 +505,63 @@ const cardStyle = computed(() => {
 
 .task-card__delete:active {
   transform: scale(1.1);
+}
+
+.task-card__form-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  touch-action: manipulation;
+}
+
+.task-card__form-button {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  z-index: 21;
+}
+
+.task-card__form-button--primary {
+  background: var(--brand-primary);
+  color: white;
+}
+
+.task-card__form-button--primary:hover:not(:disabled) {
+  background: var(--brand-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.task-card__form-button--primary:active:not(:disabled) {
+  background: var(--brand-primary-active);
+  transform: translateY(0);
+}
+
+.task-card__form-button:not(.task-card__form-button--primary) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.task-card__form-button:not(.task-card__form-button--primary):hover {
+  background: var(--bg-primary);
+  border-color: var(--text-secondary);
+}
+
+.task-card__form-button:not(.task-card__form-button--primary):active {
+  transform: scale(0.98);
+}
+
+.task-card__form-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

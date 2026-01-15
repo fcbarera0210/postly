@@ -8,15 +8,32 @@
         class="glossary__badge"
         :class="{ 'glossary__badge--editing': editingItemId === item.id }"
       >
-        <input
-          v-if="editingItemId === item.id"
-          v-model="editedName"
-          class="glossary__badge-input"
-          @blur="handleSaveEdit(item.id)"
-          @keyup.enter="handleSaveEdit(item.id)"
-          @keyup.esc="cancelEdit"
-          ref="editInputRef"
-        />
+        <div v-if="editingItemId === item.id" class="glossary__badge-edit">
+          <input
+            v-model="editedName"
+            class="glossary__badge-input"
+            @keyup.enter="handleSaveEdit(item.id)"
+            @keyup.esc="cancelEdit"
+            ref="editInputRef"
+          />
+          <div class="glossary__form-actions">
+            <button
+              class="glossary__form-button glossary__form-button--primary"
+              @click.stop.prevent="handleSaveEdit(item.id)"
+              @touchstart.stop.prevent="(e) => { e.preventDefault(); handleSaveEdit(item.id); }"
+              :disabled="!editedName.trim() || editedName.trim().length < 3"
+            >
+              Guardar
+            </button>
+            <button
+              class="glossary__form-button"
+              @click.stop.prevent="cancelEdit"
+              @touchstart.stop.prevent="(e) => { e.preventDefault(); cancelEdit(); }"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
         <div 
           v-else 
           class="glossary__badge-content" 
@@ -175,15 +192,17 @@ function startEdit(item: GlossaryItem) {
 }
 
 async function handleSaveEdit(itemId: string) {
-  if (editedName.value.trim() && editedName.value.trim().length >= 3) {
-    try {
-      await update(itemId, editedName.value.trim())
-    } catch (err) {
-      alert('Error al actualizar el elemento del glosario. Por favor, intenta nuevamente.')
-    }
+  if (!editedName.value.trim() || editedName.value.trim().length < 3) {
+    return
   }
-  editingItemId.value = null
-  editedName.value = ''
+  
+  try {
+    await update(itemId, editedName.value.trim())
+    editingItemId.value = null
+    editedName.value = ''
+  } catch (err) {
+    alert('Error al actualizar el elemento del glosario. Por favor, intenta nuevamente.')
+  }
 }
 
 function cancelEdit() {
@@ -347,6 +366,13 @@ watch(showAddForm, (show) => {
   font-weight: var(--font-weight-medium);
 }
 
+.glossary__badge-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 150px;
+}
+
 .glossary__badge-input {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -354,7 +380,64 @@ watch(showAddForm, (show) => {
   border: 2px solid var(--brand-primary);
   border-radius: var(--border-radius-sm);
   padding: var(--spacing-xs) var(--spacing-sm);
-  min-width: 100px;
+  width: 100%;
+}
+
+.glossary__form-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.glossary__form-button {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  z-index: 10;
+}
+
+.glossary__form-button--primary {
+  background: var(--brand-primary);
+  color: white;
+}
+
+.glossary__form-button--primary:hover:not(:disabled) {
+  background: var(--brand-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.glossary__form-button--primary:active:not(:disabled) {
+  background: var(--brand-primary-active);
+  transform: translateY(0);
+}
+
+.glossary__form-button:not(.glossary__form-button--primary) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.glossary__form-button:not(.glossary__form-button--primary):hover {
+  background: var(--bg-primary);
+  border-color: var(--text-secondary);
+}
+
+.glossary__form-button:not(.glossary__form-button--primary):active {
+  transform: scale(0.98);
+}
+
+.glossary__form-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .glossary__badge-delete {
