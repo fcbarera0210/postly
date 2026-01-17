@@ -37,7 +37,8 @@
         <div 
           v-else 
           class="glossary__badge-content" 
-          @dblclick="startEdit(item)"
+          @click="handleCreateTask(item)"
+          @dblclick.stop="() => { if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; clickItem = null; } startEdit(item); }"
           @touchstart.stop="handleTouchStart(item, $event)"
           @touchend.stop="handleTouchEnd"
           @touchmove.stop="handleTouchMove"
@@ -120,6 +121,10 @@ const props = defineProps<{
   boardId: string | null
 }>()
 
+const emit = defineEmits<{
+  'create-task': [item: GlossaryItem]
+}>()
+
 const { glossaryItems, loadGlossary, create, remove, update } = useGlossary(() => props.boardId)
 
 const showAddForm = ref(false)
@@ -135,6 +140,11 @@ const editInputRef = ref<HTMLInputElement | null>(null)
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
 let longPressItem: GlossaryItem | null = null
 const LONG_PRESS_DURATION = 500 // ms
+
+// Detección de doble click vs click simple
+let clickTimer: ReturnType<typeof setTimeout> | null = null
+let clickItem: GlossaryItem | null = null
+const CLICK_DELAY = 300 // ms - tiempo para detectar doble click
 
 const availableColors = [
   { value: 'yellow', label: 'Amarillo', bg: 'var(--postit-yellow)' },
@@ -208,6 +218,27 @@ async function handleSaveEdit(itemId: string) {
 function cancelEdit() {
   editingItemId.value = null
   editedName.value = ''
+}
+
+function handleCreateTask(item: GlossaryItem) {
+  // Solo emitir si no está en modo edición
+  if (editingItemId.value === item.id) return
+  
+  // Si hay un timer pendiente para el mismo item, cancelarlo (es un doble click)
+  if (clickTimer && clickItem === item) {
+    clearTimeout(clickTimer)
+    clickTimer = null
+    clickItem = null
+    return
+  }
+  
+  // Establecer timer para ejecutar después de un delay
+  clickItem = item
+  clickTimer = setTimeout(() => {
+    emit('create-task', item)
+    clickTimer = null
+    clickItem = null
+  }, CLICK_DELAY)
 }
 
 // Handlers para long press en móvil

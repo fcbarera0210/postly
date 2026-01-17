@@ -129,6 +129,7 @@ const props = defineProps<{
   column: Column
   tasks: Task[]
   canDelete: boolean
+  addTaskTrigger?: { color: string | null; title?: string } | null
 }>()
 
 const emit = defineEmits<{
@@ -266,6 +267,27 @@ watch(showAddTask, (show) => {
   if (show) {
     nextTick(() => {
       taskInputRef.value?.focus()
+    })
+  }
+})
+
+// Watch para addTaskTrigger - abrir formulario cuando cambie de null a un objeto
+watch(() => props.addTaskTrigger, (trigger) => {
+  if (trigger !== null && trigger !== undefined) {
+    // Abrir el formulario
+    showAddTask.value = true
+    // Establecer el color
+    selectedColor.value = trigger.color
+    // Pre-llenar el título si se proporciona
+    if (trigger.title) {
+      newTaskTitle.value = trigger.title
+    }
+    // Hacer focus en el input y seleccionar el texto si hay
+    nextTick(() => {
+      taskInputRef.value?.focus()
+      if (trigger.title) {
+        taskInputRef.value?.select()
+      }
     })
   }
 })

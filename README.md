@@ -13,8 +13,11 @@ Postly es una aplicación personal tipo Trello para organizar tareas de forma vi
 - 📋 **Tablero visual** - Organiza tus tareas en columnas personalizables
 - 🎨 **Post-its con colores** - Diferencia tareas con colores opcionales
 - 📚 **Glosario de colores** - Crea un glosario personalizado asociando nombres a colores
+- 🖱️ **Crear tareas desde glosario** - Click en elementos del glosario para crear tareas rápidamente
 - 🔄 **Drag & Drop** - Mueve tareas entre columnas o reordénalas fácilmente
 - 👤 **Autenticación por email/password** - Sistema de usuarios con registro e inicio de sesión
+- 💾 **Sesión persistente** - Tu sesión se mantiene al recargar la página
+- 📧 **Recordar email** - Opción para guardar tu email en el login
 - 🔒 **Tableros privados** - Cada usuario tiene su propio tablero aislado
 - 🚪 **Cerrar sesión** - Botón de logout para cambiar de cuenta
 - 🌙 **Modo oscuro** - Se adapta automáticamente a tu sistema
@@ -162,6 +165,7 @@ postly/
 - ✅ Visualización como badges con círculo de color y nombre
 - ✅ Scroll horizontal en mobile sin mostrar barra de scroll
 - ✅ Persistencia en base de datos
+- ✅ **Crear tareas desde glosario** - Click en un elemento del glosario para crear una tarea en la primera columna con el color y nombre pre-configurados
 
 ### Mejoras UX/UI
 - ✅ Scroll de página completa (no en columnas individuales)
@@ -178,7 +182,8 @@ Postly utiliza un sistema de autenticación por email y contraseña:
 - **Registro de usuarios**: Crea tu cuenta con email y contraseña
 - **Inicio de sesión**: Accede con tus credenciales
 - **Contraseñas seguras**: Hash con salt usando SHA-256
-- **Sesiones**: Válidas por 24 horas
+- **Sesiones**: Válidas por 24 horas y persistentes (se mantienen al recargar la página)
+- **Recordar email**: Opción opcional para guardar el email en el navegador
 - **Aislamiento de datos**: Cada usuario tiene su propio tablero completamente aislado
 - **Cerrar sesión**: Botón de logout para cambiar de cuenta
 - **Validación**: Email y contraseña con validación de formato
@@ -249,7 +254,22 @@ interface GlossaryItem {
 
 ## 🎨 Mejoras Recientes
 
-### Versión Actual - Mejoras Mobile y UX
+### Versión Actual - Persistencia y Productividad
+
+**Nuevas Funcionalidades:**
+- ✅ **Sesión persistente**: La sesión ahora se guarda en `localStorage` en lugar de `sessionStorage`, permitiendo que la sesión persista al recargar la página
+- ✅ **Recordar email**: Checkbox en el formulario de login para guardar el email y pre-llenarlo automáticamente en futuros inicios de sesión
+- ✅ **Crear tareas desde glosario**: Click en cualquier elemento del glosario para crear rápidamente una tarea en la primera columna (izquierda a derecha) con:
+  - Color del glosario pre-seleccionado
+  - Nombre del glosario como título inicial (editable)
+  - Focus automático en el input para escribir inmediatamente
+  - Detección inteligente de doble click para evitar conflictos con la edición
+
+**Mejoras de UX:**
+- ✅ Mejor espaciado en el formulario de login entre campos, checkbox y botón
+- ✅ Experiencia más fluida al crear tareas desde el glosario
+
+### Versión Anterior - Mejoras Mobile y UX
 
 **Mejoras Mobile:**
 - ✅ **Edición con long press**: En dispositivos móviles, mantén presionado cualquier elemento editable (tareas, columnas, tablero, glosario) para entrar en modo edición, evitando el problema del zoom con doble tap

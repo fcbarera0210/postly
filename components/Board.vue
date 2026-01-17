@@ -50,6 +50,7 @@
     <Glossary
       v-if="boardId"
       :board-id="boardId"
+      @create-task="handleCreateTaskFromGlossary"
     />
 
     <div class="board__columns-wrapper">
@@ -63,6 +64,7 @@
           :column="column"
           :tasks="tasksByColumn[column.id] || []"
           :can-delete="columnsCanDelete"
+          :add-task-trigger="columnAddTriggers[column.id] || null"
           @task-create="handleTaskCreate"
           @task-delete="handleTaskDelete"
           @task-update="handleTaskUpdate"
@@ -121,7 +123,7 @@ import { useBoard } from '~/composables/useBoard'
 import { useColumns } from '~/composables/useColumns'
 import { useTasks } from '~/composables/useTasks'
 import { useAuth } from '~/composables/useAuth'
-import type { Column as ColumnType, Task } from '~/utils/db'
+import type { Column as ColumnType, Task, GlossaryItem } from '~/utils/db'
 
 const { board, loadBoard, updateName } = useBoard()
 const boardId = computed(() => board.value?.id || null)
@@ -142,6 +144,9 @@ let longPressTimer: ReturnType<typeof setTimeout> | null = null
 const LONG_PRESS_DURATION = 500 // ms
 
 const localColumns = ref<ColumnType[]>([])
+
+// Objeto reactivo para triggers de agregar tarea por columna
+const columnAddTriggers = ref<Record<string, { color: string | null; title?: string } | null>>({})
 
 // Computed para mapear tareas por columna de forma reactiva (usando objeto para reactividad)
 const tasksByColumn = computed(() => {
@@ -372,6 +377,33 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
     alert('Error al reordenar las tareas. Por favor, intenta nuevamente.')
     await loadTasks() // Recargar para restaurar estado
   }
+}
+
+function handleCreateTaskFromGlossary(glossaryItem: GlossaryItem) {
+  // Encontrar la primera columna (menor order)
+  if (localColumns.value.length === 0) {
+    return
+  }
+  
+  const firstColumn = localColumns.value.reduce((prev, current) => {
+    return (prev.order < current.order) ? prev : current
+  })
+  
+  // Actualizar el trigger para abrir el formulario en esa columna
+  // Primero resetear a null para que el watch detecte el cambio
+  columnAddTriggers.value[firstColumn.id] = null
+  nextTick(() => {
+    // Luego establecer el trigger con el color y el título del glosario
+    columnAddTriggers.value[firstColumn.id] = { 
+      color: glossaryItem.color,
+      title: glossaryItem.name
+    }
+    
+    // Resetear después de un momento para permitir que se active nuevamente si es necesario
+    setTimeout(() => {
+      columnAddTriggers.value[firstColumn.id] = null
+    }, 100)
+  })
 }
 
 function handleLogout() {

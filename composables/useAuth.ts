@@ -16,8 +16,8 @@ export function useAuth() {
   const isAuthenticated = (): boolean => {
     if (import.meta.server) return false
     
-    const userId = sessionStorage.getItem(SESSION_KEY)
-    const timestamp = sessionStorage.getItem(SESSION_TIMESTAMP)
+    const userId = localStorage.getItem(SESSION_KEY)
+    const timestamp = localStorage.getItem(SESSION_TIMESTAMP)
     
     if (!userId || !timestamp) return false
     
@@ -37,8 +37,8 @@ export function useAuth() {
     
     if (!isAuthenticated()) return null
     
-    const userId = sessionStorage.getItem(SESSION_KEY)
-    const email = sessionStorage.getItem(SESSION_EMAIL)
+    const userId = localStorage.getItem(SESSION_KEY)
+    const email = localStorage.getItem(SESSION_EMAIL)
     
     if (!userId || !email) return null
     
@@ -82,9 +82,9 @@ export function useAuth() {
     const user = await createUser(userId, email, passwordHash)
 
     // Guardar sesión
-    sessionStorage.setItem(SESSION_KEY, user.id)
-    sessionStorage.setItem(SESSION_EMAIL, user.email)
-    sessionStorage.setItem(SESSION_TIMESTAMP, Date.now().toString())
+    localStorage.setItem(SESSION_KEY, user.id)
+    localStorage.setItem(SESSION_EMAIL, user.email)
+    localStorage.setItem(SESSION_TIMESTAMP, Date.now().toString())
 
     return { id: user.id, email: user.email }
   }
@@ -113,17 +113,17 @@ export function useAuth() {
     }
 
     // Guardar sesión
-    sessionStorage.setItem(SESSION_KEY, user.id)
-    sessionStorage.setItem(SESSION_EMAIL, user.email)
-    sessionStorage.setItem(SESSION_TIMESTAMP, Date.now().toString())
+    localStorage.setItem(SESSION_KEY, user.id)
+    localStorage.setItem(SESSION_EMAIL, user.email)
+    localStorage.setItem(SESSION_TIMESTAMP, Date.now().toString())
 
     return { id: user.id, email: user.email }
   }
 
   const logout = () => {
-    sessionStorage.removeItem(SESSION_KEY)
-    sessionStorage.removeItem(SESSION_EMAIL)
-    sessionStorage.removeItem(SESSION_TIMESTAMP)
+    localStorage.removeItem(SESSION_KEY)
+    localStorage.removeItem(SESSION_EMAIL)
+    localStorage.removeItem(SESSION_TIMESTAMP)
   }
 
   return {

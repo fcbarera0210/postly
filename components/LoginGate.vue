@@ -76,6 +76,17 @@
             required
           />
         </div>
+
+        <div v-if="!isRegisterMode" class="login-gate__remember">
+          <label class="login-gate__checkbox-label">
+            <input
+              type="checkbox"
+              v-model="rememberEmail"
+              class="login-gate__checkbox"
+            />
+            <span>Recordar email</span>
+          </label>
+        </div>
         
         <button
           type="submit"
@@ -91,11 +102,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { useBoard } from '~/composables/useBoard'
 import { createColumn } from '~/utils/db'
 import { nanoid } from 'nanoid'
+
+const SAVED_EMAIL_KEY = 'postly_saved_email'
 
 const emit = defineEmits<{
   authenticated: []
@@ -110,6 +123,7 @@ const password = ref('')
 const confirmPassword = ref('')
 const loading = ref(false)
 const error = ref('')
+const rememberEmail = ref(false)
 
 const isFormValid = computed(() => {
   if (!email.value || !password.value) return false
@@ -124,6 +138,17 @@ const isFormValid = computed(() => {
 function clearError() {
   error.value = ''
 }
+
+// Cargar email guardado al montar el componente
+onMounted(() => {
+  if (import.meta.client) {
+    const savedEmail = localStorage.getItem(SAVED_EMAIL_KEY)
+    if (savedEmail) {
+      email.value = savedEmail
+      rememberEmail.value = true
+    }
+  }
+})
 
 async function handleSubmit() {
   if (!isFormValid.value) {
@@ -157,6 +182,14 @@ async function handleSubmit() {
     } else {
       // Login
       await login(email.value, password.value)
+      
+      // Guardar email si el checkbox está marcado
+      if (rememberEmail.value) {
+        localStorage.setItem(SAVED_EMAIL_KEY, email.value)
+      } else {
+        localStorage.removeItem(SAVED_EMAIL_KEY)
+      }
+      
       emit('authenticated')
     }
   } catch (err: any) {
@@ -347,5 +380,33 @@ async function handleSubmit() {
 .login-gate__button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.login-gate__remember {
+  display: flex;
+  align-items: center;
+  margin-top: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.login-gate__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.login-gate__checkbox-label:hover {
+  color: var(--text-primary);
+}
+
+.login-gate__checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--brand-primary);
 }
 </style>
