@@ -3,7 +3,7 @@
     class="task-card"
     :class="[`task-card--${colorClass}`, { 'is-editing': isEditing }]"
     :style="cardStyle"
-    @dblclick.stop="startEdit"
+    @click="handleCardClick"
     @touchstart="handleTouchStart"
     @touchend="handleTouchEnd"
     @touchmove="handleTouchMove"
@@ -19,7 +19,45 @@
         @click.stop
         ref="titleInputRef"
       />
-      <p v-else class="task-card__title" :style="{ color: cardStyle.color }">{{ task.title }}</p>
+      <p
+        v-else
+        class="task-card__title"
+        :style="{ color: cardStyle.color }"
+        @click.stop="onTitleClick"
+        @dblclick.stop="onTitleDblClick"
+      >
+        {{ task.title }}
+      </p>
+      <div v-if="!isEditing" class="task-card__footer">
+        <div class="task-card__assignees" aria-label="Responsables">
+          <span
+            v-for="a in assigneesShown"
+            :key="a.user_id"
+            class="task-card__avatar"
+            :style="{ backgroundColor: avatarBg(a.user_id) }"
+            :title="userLabel(a)"
+          >
+            {{ userInitials(a) }}
+          </span>
+          <span
+            v-if="assigneesExtra > 0"
+            class="task-card__avatar task-card__avatar--more"
+            :title="`${assigneesExtra} más`"
+          >
+            +{{ assigneesExtra }}
+          </span>
+        </div>
+        <button
+          type="button"
+          class="task-card__detail-btn"
+          title="Detalle, comentarios y responsables"
+          aria-label="Abrir detalle de la tarea"
+          @mousedown.stop
+          @click.stop="$emit('open-detail')"
+        >
+          <ChatBubbleLeftRightIcon class="task-card__detail-icon" />
+        </button>
+      </div>
     </div>
     <div 
       v-if="isEditing" 
@@ -76,9 +114,11 @@
       </div>
     </div>
     <button
+      type="button"
       class="task-card__delete"
-      @click.stop="$emit('delete')"
+      title="Eliminar tarea"
       aria-label="Eliminar tarea"
+      @click.stop="$emit('delete')"
     >
       ×
     </button>
@@ -86,8 +126,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
-import type { Task } from '~/utils/db'
+import { ref, computed, nextTick, onUnmounted } from 'vue'
+import { ChatBubbleLeftRightIcon } from '@heroicons/vue/24/outline'
+import type { Task, TaskAssignee } from '~/utils/types'
+import { userInitials, userLabel } from '~/utils/userLabel'
+
+const TITLE_DETAIL_DELAY_MS = 400
+const MAX_AVATAR_CHIPS = 3
+
+let titleOpenTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearTitleOpenTimer() {
+  if (titleOpenTimer) {
+    clearTimeout(titleOpenTimer)
+    titleOpenTimer = null
+  }
+}
+
+onUnmounted(() => clearTitleOpenTimer())
+
+function avatarBg(userId: string): string {
+  let n = 0
+  for (let i = 0; i < userId.length; i++) {
+    n = (n + userId.charCodeAt(i) * (i + 3)) % 360
+  }
+  return `hsl(${n} 42% 38%)`
+}
 
 const props = defineProps<{
   task: Task
@@ -96,6 +160,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   delete: []
   update: [taskId: string, updates: { title?: string; color?: string | null }]
+  'open-detail': []
 }>()
 
 const isEditing = ref(false)
@@ -103,6 +168,36 @@ const editedTitle = ref('')
 const selectedColor = ref<string | null>(null)
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const colorPickerRef = ref<HTMLDivElement | null>(null)
+
+const assigneesList = computed(() => props.task.assignees ?? [])
+const assigneesShown = computed<TaskAssignee[]>(() =>
+  assigneesList.value.slice(0, MAX_AVATAR_CHIPS)
+)
+const assigneesExtra = computed(() =>
+  Math.max(0, assigneesList.value.length - MAX_AVATAR_CHIPS)
+)
+
+function onTitleClick() {
+  clearTitleOpenTimer()
+  titleOpenTimer = setTimeout(() => {
+    titleOpenTimer = null
+    emit('open-detail')
+  }, TITLE_DETAIL_DELAY_MS)
+}
+
+function onTitleDblClick(e: MouseEvent) {
+  e.preventDefault()
+  clearTitleOpenTimer()
+  startEdit()
+}
+
+function handleCardClick(e: MouseEvent) {
+  if (isEditing.value) return
+  const el = e.target as HTMLElement
+  if (el.closest('.task-card__delete')) return
+  if (el.closest('.task-card__title')) return
+  emit('open-detail')
+}
 
 // Long press para móvil
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
@@ -254,9 +349,11 @@ function handleTouchStart(e: TouchEvent) {
   
   // Si el touch es en un botón o elemento interactivo, no hacer nada
   const target = e.target as HTMLElement
-  if (target.closest('.task-card__form-button') || 
+  if (target.closest('.task-card__form-button') ||
       target.closest('.task-card__color-option') ||
-      target.closest('.task-card__edit-actions')) {
+      target.closest('.task-card__edit-actions') ||
+      target.closest('.task-card__detail-btn') ||
+      target.closest('.task-card__footer')) {
     return
   }
   
@@ -389,6 +486,75 @@ const cardStyle = computed(() => {
 
 .task-card__content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+
+.task-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-top: 2px;
+}
+
+.task-card__assignees {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-height: 28px;
+  flex: 1;
+  min-width: 0;
+}
+
+.task-card__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: #fff;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.task-card__avatar--more {
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 9px;
+}
+
+.task-card__detail-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity var(--transition-base), background var(--transition-base);
+}
+
+.task-card__detail-btn:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.task-card__detail-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .task-card__title {

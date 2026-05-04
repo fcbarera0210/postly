@@ -104,9 +104,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '~/composables/useAuth'
-import { useBoard } from '~/composables/useBoard'
-import { createColumn } from '~/utils/db'
-import { nanoid } from 'nanoid'
+import { apiFetch } from '~/composables/useApi'
 
 const SAVED_EMAIL_KEY = 'postly_saved_email'
 
@@ -115,7 +113,6 @@ const emit = defineEmits<{
 }>()
 
 const { login, register } = useAuth()
-const { initializeBoard, board } = useBoard()
 
 const isRegisterMode = ref(false)
 const email = ref('')
@@ -165,19 +162,14 @@ async function handleSubmit() {
 
   try {
     if (isRegisterMode.value) {
-      // Registro
       await register(email.value, password.value)
-      
-      // Crear tablero inicial con columnas por defecto
-      await initializeBoard('Mi Tablero')
-      if (board.value) {
-        const columnTitles = ['Por hacer', 'En progreso', 'Hecho']
-        for (let i = 0; i < columnTitles.length; i++) {
-          const columnId = nanoid()
-          await createColumn(columnId, board.value.id, columnTitles[i], i)
+      await apiFetch('/api/boards', {
+        method: 'POST',
+        body: {
+          name: 'Mi Tablero',
+          initialColumnTitles: ['Por hacer', 'En progreso', 'Hecho']
         }
-      }
-      
+      })
       emit('authenticated')
     } else {
       // Login

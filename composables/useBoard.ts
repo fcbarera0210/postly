@@ -1,26 +1,34 @@
-import { ref, computed } from 'vue'
-import type { Board } from '~/utils/db'
-import { getBoard, updateBoardName, createBoard as createBoardDb } from '~/utils/db'
-import { useAuth } from '~/composables/useAuth'
-import { nanoid } from 'nanoid'
+import { ref, computed, watch, unref, type Ref, type ComputedRef } from 'vue'
+import type { Board } from '~/utils/types'
+import { apiFetch } from '~/composables/useApi'
 
-const board = ref<Board | null>(null)
-const loading = ref(false)
-const error = ref<string | null>(null)
+export function useBoard(
+  boardId: Ref<string | null | undefined> | ComputedRef<string | null | undefined> | (() => string | null | undefined)
+) {
+  const board = ref<Board | null>(null)
+  const boardRole = ref<'owner' | 'editor' | null>(null)
+  const loading = ref(false)
+  const error = ref<string | null>(null)
 
-export function useBoard() {
-  const { getCurrentUser } = useAuth()
+  const getId = () => {
+    if (typeof boardId === 'function') return boardId() ?? null
+    return unref(boardId) ?? null
+  }
 
   const loadBoard = async () => {
+    const id = getId()
+    if (!id) {
+      board.value = null
+      boardRole.value = null
+      return null
+    }
+
     loading.value = true
     error.value = null
     try {
-      const user = await getCurrentUser()
-      if (!user) {
-        throw new Error('Usuario no autenticado')
-      }
-
-      board.value = await getBoard(user.id)
+      const b = await apiFetch<Board & { role?: 'owner' | 'editor' }>(`/api/boards/${id}`)
+      board.value = { id: b.id, name: b.name, created_at: b.created_at, role: b.role }
+      boardRole.value = b.role ?? null
       return board.value
     } catch (err) {
       error.value = 'Error al cargar el tablero'
@@ -30,41 +38,33 @@ export function useBoard() {
     }
   }
 
-  const initializeBoard = async (name: string) => {
-    loading.value = true
-    error.value = null
-    try {
-      const user = await getCurrentUser()
-      if (!user) {
-        throw new Error('Usuario no autenticado')
+  watch(
+    () => getId(),
+    (id) => {
+      if (id) {
+        loadBoard().catch(() => {})
+      } else {
+        board.value = null
+        boardRole.value = null
       }
-
-      const existingBoard = await getBoard(user.id)
-      if (existingBoard) {
-        throw new Error('El tablero ya existe')
-      }
-
-      const boardId = nanoid()
-      board.value = await createBoardDb(boardId, name, user.id)
-      return board.value
-    } catch (err) {
-      error.value = 'Error al crear el tablero'
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
+    },
+    { immediate: true }
+  )
 
   const updateName = async (newName: string) => {
-    if (!board.value) {
+    const id = getId()
+    if (!id || !board.value) {
       throw new Error('No hay tablero cargado')
     }
 
     loading.value = true
     error.value = null
     try {
-      await updateBoardName(board.value.id, newName)
-      board.value.name = newName
+      const b = await apiFetch<Board>(`/api/boards/${id}`, {
+        method: 'PATCH',
+        body: { name: newName }
+      })
+      board.value.name = b.name
     } catch (err) {
       error.value = 'Error al actualizar el nombre'
       throw err
@@ -75,10 +75,10 @@ export function useBoard() {
 
   return {
     board: computed(() => board.value),
+    boardRole: computed(() => boardRole.value),
     loading: computed(() => loading.value),
     error: computed(() => error.value),
     loadBoard,
-    initializeBoard,
     updateName
   }
 }

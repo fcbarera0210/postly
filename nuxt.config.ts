@@ -3,9 +3,10 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   runtimeConfig: {
-    public: {
-      databaseUrl: process.env.DATABASE_URL || ''
-    }
+    databaseUrl: process.env.DATABASE_URL || '',
+    jwtSecret:
+      process.env.NUXT_SESSION_SECRET ||
+      (process.env.NODE_ENV === 'development' ? 'postly-dev-jwt-secret-change-in-production' : '')
   },
   ssr: false, // Client-side only para evitar problemas con Neon en servidor
   app: {

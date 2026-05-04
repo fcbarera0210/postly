@@ -23,9 +23,11 @@
       <div class="column__actions">
         <button
           v-if="canDelete"
+          type="button"
           class="column__delete"
-          @click="$emit('delete')"
+          title="Eliminar columna"
           aria-label="Eliminar columna"
+          @click="$emit('delete')"
         >
           ×
         </button>
@@ -53,6 +55,7 @@
             :task="element"
             @delete="() => $emit('task-delete', element.id)"
             @update="handleTaskUpdate"
+            @open-detail="$emit('task-open-detail', element.id)"
           />
         </template>
       </draggable>
@@ -85,17 +88,21 @@
         <button
           v-for="color in availableColors"
           :key="color.value"
+          type="button"
           class="column__color-option"
           :class="{ 'column__color-option--active': selectedColor === color.value }"
           :style="{ backgroundColor: color.bg }"
-          @click="selectedColor = color.value"
+          :title="color.label"
           :aria-label="`Color ${color.label}`"
+          @click="selectedColor = color.value"
         />
         <button
+          type="button"
           class="column__color-option column__color-option--clear"
           :class="{ 'column__color-option--active': selectedColor === null }"
-          @click="selectedColor = null"
+          title="Sin color"
           aria-label="Sin color"
+          @click="selectedColor = null"
         >
           ×
         </button>
@@ -123,7 +130,7 @@
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import draggable from 'vuedraggable'
 import TaskCard from './TaskCard.vue'
-import type { Column, Task } from '~/utils/db'
+import type { Column, Task } from '~/utils/types'
 
 const props = defineProps<{
   column: Column
@@ -135,6 +142,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'task-create': [columnId: string, title: string, color: string | null]
   'task-delete': [taskId: string]
+  'task-open-detail': [taskId: string]
   'task-move': [taskId: string, newColumnId: string, newOrder: number]
   'task-reorder': [columnId: string, updates: Array<{ id: string; order: number }>]
   'update-title': [columnId: string, title: string]
@@ -155,6 +163,19 @@ const LONG_PRESS_DURATION = 500 // ms
 
 const localTasks = ref<Task[]>([])
 
+/** Firma estable por columna: orden, column_id, responsables, etc. (evita que el Kanban quede desactualizado). */
+function columnTasksSnapshot(list: Task[]): string {
+  return list
+    .map((t) => {
+      const assigneeIds = (t.assignees ?? [])
+        .map((a) => a.user_id)
+        .sort()
+        .join(',')
+      return `${t.id}:${t.column_id}:${t.order}:${t.color ?? ''}:${t.title}:${assigneeIds}`
+    })
+    .join('>')
+}
+
 // Watch para sincronizar props.tasks con localTasks
 let isDragging = false
 
@@ -170,19 +191,11 @@ watch(() => props.tasks, (newTasks) => {
     return
   }
   
-  // Ordenar las tareas por order
   const newTasksSorted = [...newTasks].sort((a, b) => a.order - b.order)
-  
-  // Comparar si realmente cambió comparando IDs, longitud o propiedades de las tareas
-  const newIds = newTasksSorted.map(t => t.id).sort().join(',')
-  const currentIds = localTasks.value.map(t => t.id).sort().join(',')
-  
-  // Comparar también propiedades de las tareas (como color) para detectar cambios
-  const newTasksHash = newTasksSorted.map(t => `${t.id}:${t.color || ''}:${t.title}`).sort().join('|')
-  const currentTasksHash = localTasks.value.map(t => `${t.id}:${t.color || ''}:${t.title}`).sort().join('|')
-  
-  // Actualizar si hay cambios en los IDs, cantidad o propiedades
-  if (newIds !== currentIds || localTasks.value.length !== newTasksSorted.length || newTasksHash !== currentTasksHash) {
+  const nextSnap = columnTasksSnapshot(newTasksSorted)
+  const curSnap = columnTasksSnapshot(localTasks.value)
+
+  if (nextSnap !== curSnap) {
     localTasks.value = newTasksSorted
   }
 }, { immediate: true, deep: true })

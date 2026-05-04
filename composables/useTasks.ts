@@ -1,42 +1,46 @@
 import { ref, computed, type Ref, type ComputedRef, unref } from 'vue'
-import type { Task } from '~/utils/db'
-import { getTasksByBoard, createTask, updateTask, deleteTask, moveTask, reorderTasks } from '~/utils/db'
-import { nanoid } from 'nanoid'
-
-const tasks = ref<Task[]>([])
-const loading = ref(false)
-const error = ref<string | null>(null)
+import type { Task } from '~/utils/types'
+import { apiFetch } from '~/composables/useApi'
 
 export function useTasks(boardId: Ref<string | null> | ComputedRef<string | null> | (() => string | null)) {
+  const tasks = ref<Task[]>([])
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+
   const getBoardId = () => {
     if (typeof boardId === 'function') return boardId()
     return unref(boardId)
   }
 
-  const loadTasks = async () => {
+  const base = () => {
+    const id = getBoardId()
+    if (!id) throw new Error('No hay boardId')
+    return `/api/boards/${id}/tasks`
+  }
+
+  const loadTasks = async (opts?: { silent?: boolean }) => {
     const id = getBoardId()
     if (!id) {
       tasks.value = []
       return
     }
 
-    loading.value = true
+    const silent = opts?.silent === true
+    if (!silent) loading.value = true
     error.value = null
     try {
-      tasks.value = await getTasksByBoard(id)
+      tasks.value = await apiFetch<Task[]>(base())
     } catch (err) {
       error.value = 'Error al cargar las tareas'
       throw err
     } finally {
-      loading.value = false
+      if (!silent) loading.value = false
     }
   }
 
   const getTasksByColumn = (columnId: string) => {
-    return computed(() => 
-      tasks.value
-        .filter(t => t.column_id === columnId)
-        .sort((a, b) => a.order - b.order)
+    return computed(() =>
+      tasks.value.filter((t) => t.column_id === columnId).sort((a, b) => a.order - b.order)
     )
   }
 
@@ -44,33 +48,11 @@ export function useTasks(boardId: Ref<string | null> | ComputedRef<string | null
     loading.value = true
     error.value = null
     try {
-      // Crear nueva tarea con order = 0 (al inicio)
-      const newOrder = 0
-      const newTask = await createTask(nanoid(), columnId, title, color, newOrder)
-      
-      // Obtener todas las tareas existentes en esta columna (excepto la nueva)
-      const columnTasks = tasks.value.filter(t => t.column_id === columnId && t.id !== newTask.id)
-      
-      // Si hay tareas existentes, incrementar su order en +1
-      if (columnTasks.length > 0) {
-        const updates = columnTasks.map(task => ({
-          id: task.id,
-          order: task.order + 1
-        }))
-        
-        // Actualizar el orden en la base de datos
-        await reorderTasks(updates)
-        
-        // Actualizar el orden localmente
-        updates.forEach(({ id, order }) => {
-          const task = tasks.value.find(t => t.id === id)
-          if (task) {
-            task.order = order
-          }
-        })
-      }
-      
-      tasks.value.push(newTask)
+      const newTask = await apiFetch<Task>(base(), {
+        method: 'POST',
+        body: { columnId, title, color }
+      })
+      await loadTasks()
       return newTask
     } catch (err) {
       error.value = 'Error al crear la tarea'
@@ -84,8 +66,8 @@ export function useTasks(boardId: Ref<string | null> | ComputedRef<string | null
     loading.value = true
     error.value = null
     try {
-      await deleteTask(taskId)
-      tasks.value = tasks.value.filter(t => t.id !== taskId)
+      await apiFetch(`${base()}/${taskId}`, { method: 'DELETE' })
+      tasks.value = tasks.value.filter((t) => t.id !== taskId)
     } catch (err) {
       error.value = 'Error al eliminar la tarea'
       throw err
@@ -98,8 +80,11 @@ export function useTasks(boardId: Ref<string | null> | ComputedRef<string | null
     loading.value = true
     error.value = null
     try {
-      await updateTask(taskId, updates.title, updates.color)
-      const task = tasks.value.find(t => t.id === taskId)
+      await apiFetch(`${base()}/${taskId}`, {
+        method: 'PATCH',
+        body: updates
+      })
+      const task = tasks.value.find((t) => t.id === taskId)
       if (task) {
         if (updates.title !== undefined) task.title = updates.title
         if (updates.color !== undefined) task.color = updates.color
@@ -116,12 +101,16 @@ export function useTasks(boardId: Ref<string | null> | ComputedRef<string | null
     loading.value = true
     error.value = null
     try {
-      await moveTask(taskId, newColumnId, newOrder)
-      const task = tasks.value.find(t => t.id === taskId)
+      await apiFetch(`${base()}/move`, {
+        method: 'POST',
+        body: { taskId, newColumnId, newOrder }
+      })
+      const task = tasks.value.find((t) => t.id === taskId)
       if (task) {
         task.column_id = newColumnId
         task.order = newOrder
       }
+      loadTasks({ silent: true }).catch(() => {})
     } catch (err) {
       error.value = 'Error al mover la tarea'
       throw err
@@ -134,10 +123,12 @@ export function useTasks(boardId: Ref<string | null> | ComputedRef<string | null
     loading.value = true
     error.value = null
     try {
-      await reorderTasks(updates)
-      // Actualizar orden local
+      await apiFetch(`${base()}/reorder`, {
+        method: 'POST',
+        body: { updates }
+      })
       updates.forEach(({ id, order }) => {
-        const task = tasks.value.find(t => t.id === id)
+        const task = tasks.value.find((t) => t.id === id)
         if (task) {
           task.order = order
         }

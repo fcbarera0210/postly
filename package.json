@@ -3,6 +3,10 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "db:apply": "node scripts/apply-neon-schema.mjs",
+    "db:migrate-legacy": "node scripts/migrate-legacy.mjs",
+    "db:migrate-phase2": "node scripts/migrate-phase2.mjs",
+    "db:migrate-phase3": "node scripts/migrate-phase3.mjs",
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",

@@ -1,134 +1,96 @@
-import { hashPassword, verifyPassword } from '~/utils/security'
-import { createUser, getUserByEmail, getUserById } from '~/utils/db'
-import { nanoid } from 'nanoid'
+import { apiFetch } from '~/composables/useApi'
+import type { User } from '~/utils/types'
 
-interface User {
-  id: string
-  email: string
+const TOKEN_KEY = 'postly_token'
+const USER_EMAIL_KEY = 'postly_user_email'
+
+function parseJwtExp(token: string): number | null {
+  try {
+    const p = token.split('.')[1]
+    if (!p) return null
+    const json = JSON.parse(atob(p.replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof json.exp === 'number' ? json.exp : null
+  } catch {
+    return null
+  }
 }
-
-const SESSION_KEY = 'postly_user_id'
-const SESSION_EMAIL = 'postly_user_email'
-const SESSION_TIMESTAMP = 'postly_timestamp'
-const SESSION_MAX_AGE = 24 * 60 * 60 * 1000 // 24 horas
 
 export function useAuth() {
   const isAuthenticated = (): boolean => {
     if (import.meta.server) return false
-    
-    const userId = localStorage.getItem(SESSION_KEY)
-    const timestamp = localStorage.getItem(SESSION_TIMESTAMP)
-    
-    if (!userId || !timestamp) return false
-    
-    // Sesión válida por 24 horas
-    const sessionAge = Date.now() - parseInt(timestamp, 10)
-    
-    if (sessionAge > SESSION_MAX_AGE) {
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (!token) return false
+    const exp = parseJwtExp(token)
+    if (exp === null || exp < Math.floor(Date.now() / 1000)) {
       logout()
       return false
     }
-    
     return true
   }
 
   const getCurrentUser = async (): Promise<User | null> => {
     if (import.meta.server) return null
-    
     if (!isAuthenticated()) return null
-    
-    const userId = localStorage.getItem(SESSION_KEY)
-    const email = localStorage.getItem(SESSION_EMAIL)
-    
-    if (!userId || !email) return null
-    
-    // Verificar que el usuario aún existe en la BD
     try {
-      const user = await getUserById(userId)
-      if (!user) {
-        logout()
-        return null
-      }
-      return { id: user.id, email: user.email }
-    } catch (error) {
+      return await apiFetch<User>('/api/auth/me')
+    } catch {
       logout()
       return null
     }
   }
 
   const register = async (email: string, password: string): Promise<User> => {
-    // Validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       throw new Error('Email inválido')
     }
-
-    // Validar password
     if (!password || password.length < 6) {
       throw new Error('La contraseña debe tener al menos 6 caracteres')
     }
 
-    // Verificar si el email ya existe
-    const existingUser = await getUserByEmail(email)
-    if (existingUser) {
-      throw new Error('Este email ya está registrado')
-    }
-
-    // Hashear password
-    const passwordHash = await hashPassword(password)
-
-    // Crear usuario
-    const userId = nanoid()
-    const user = await createUser(userId, email, passwordHash)
-
-    // Guardar sesión
-    localStorage.setItem(SESSION_KEY, user.id)
-    localStorage.setItem(SESSION_EMAIL, user.email)
-    localStorage.setItem(SESSION_TIMESTAMP, Date.now().toString())
-
-    return { id: user.id, email: user.email }
+    const res = await $fetch<{ token: string; user: User }>('/api/auth/register', {
+      method: 'POST',
+      body: { email, password }
+    })
+    localStorage.setItem(TOKEN_KEY, res.token)
+    localStorage.setItem(USER_EMAIL_KEY, res.user.email)
+    return res.user
   }
 
   const login = async (email: string, password: string): Promise<User> => {
-    // Validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       throw new Error('Email inválido')
     }
-
     if (!password) {
       throw new Error('La contraseña es requerida')
     }
 
-    // Buscar usuario por email
-    const user = await getUserByEmail(email)
-    if (!user) {
-      throw new Error('Email o contraseña incorrectos')
-    }
-
-    // Verificar password
-    const isValid = await verifyPassword(password, user.password_hash)
-    if (!isValid) {
-      throw new Error('Email o contraseña incorrectos')
-    }
-
-    // Guardar sesión
-    localStorage.setItem(SESSION_KEY, user.id)
-    localStorage.setItem(SESSION_EMAIL, user.email)
-    localStorage.setItem(SESSION_TIMESTAMP, Date.now().toString())
-
-    return { id: user.id, email: user.email }
+    const res = await $fetch<{ token: string; user: User }>('/api/auth/login', {
+      method: 'POST',
+      body: { email, password }
+    })
+    localStorage.setItem(TOKEN_KEY, res.token)
+    localStorage.setItem(USER_EMAIL_KEY, res.user.email)
+    return res.user
   }
 
   const logout = () => {
-    localStorage.removeItem(SESSION_KEY)
-    localStorage.removeItem(SESSION_EMAIL)
-    localStorage.removeItem(SESSION_TIMESTAMP)
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_EMAIL_KEY)
+  }
+
+  const updateProfile = async (display_name: string | null): Promise<User> => {
+    return apiFetch<User>('/api/auth/me', {
+      method: 'PATCH',
+      body: { display_name }
+    })
   }
 
   return {
     isAuthenticated,
     getCurrentUser,
+    updateProfile,
     register,
     login,
     logout

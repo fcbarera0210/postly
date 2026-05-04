@@ -50,17 +50,21 @@
           <span class="glossary__badge-name">{{ item.name }}</span>
         </div>
         <button
+          type="button"
           class="glossary__badge-delete"
-          @click="handleDelete(item.id)"
+          title="Eliminar elemento del glosario"
           aria-label="Eliminar elemento"
+          @click="handleDelete(item.id)"
         >
           ×
         </button>
       </div>
       <button
+        type="button"
         class="glossary__add"
-        @click="showAddForm = true"
+        title="Agregar elemento al glosario"
         aria-label="Agregar elemento al glosario"
+        @click="showAddForm = true"
       >
         +
       </button>
@@ -85,11 +89,13 @@
           <button
             v-for="color in availableColors"
             :key="color.value"
+            type="button"
             class="glossary__color-option"
             :class="{ 'glossary__color-option--active': selectedColor === color.value }"
             :style="{ backgroundColor: color.bg }"
-            @click="selectedColor = color.value"
+            :title="color.label"
             :aria-label="`Color ${color.label}`"
+            @click="selectedColor = color.value"
           />
         </div>
         <div class="glossary__form-actions">
@@ -115,7 +121,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
 import { useGlossary } from '~/composables/useGlossary'
-import type { GlossaryItem } from '~/utils/db'
+import type { GlossaryItem } from '~/utils/types'
 
 const props = defineProps<{
   boardId: string | null

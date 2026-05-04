@@ -18,7 +18,7 @@ Postly es una aplicación personal tipo Trello para organizar tareas de forma vi
 - 👤 **Autenticación por email/password** - Sistema de usuarios con registro e inicio de sesión
 - 💾 **Sesión persistente** - Tu sesión se mantiene al recargar la página
 - 📧 **Recordar email** - Opción para guardar tu email en el login
-- 🔒 **Tableros privados** - Cada usuario tiene su propio tablero aislado
+- 🔒 **Varios tableros y colaboración** - Tableros propios y compartidos como editor; solicitudes de acceso por ID de tablero
 - 🚪 **Cerrar sesión** - Botón de logout para cambiar de cuenta
 - 🌙 **Modo oscuro** - Se adapta automáticamente a tu sistema
 - 📱 **Responsive** - Funciona perfectamente en desktop y móvil
@@ -49,17 +49,29 @@ npm install
 
 3. **Configurar variables de entorno**
 
-Crear archivo `.env` en la raíz del proyecto:
+Crear archivo `.env` en la raíz (puedes copiar `.env.example`):
+
 ```env
 DATABASE_URL="tu_url_de_conexion_de_neon"
+NUXT_SESSION_SECRET="un_secreto_largo_para_jwt"
 ```
+
+Si en local las rutas `/api/*` fallan pero `npm run db:migrate-legacy` sí toca tu Neon, añade la misma URL como **`NUXT_DATABASE_URL`** (Nitro resuelve antes `process.env`).
+
+En **Vercel**, añade `DATABASE_URL`, `NUXT_SESSION_SECRET` y, si hiciera falta, `NUXT_DATABASE_URL` igual que `DATABASE_URL`.
 
 4. **Configurar la base de datos**
 
-Ejecutar los scripts SQL en tu base de datos Neon:
-- Abre el SQL Editor en Neon
-- Primero ejecuta el contenido de `database/schema.sql` (esquema base)
-- Luego ejecuta el contenido de `database/migration_users.sql` (sistema de usuarios)
+En Neon (SQL Editor), si partes de cero:
+
+1. **Instalación limpia:** ejecuta `database/reset_neon.sql` y luego `database/schema.sql` (o `npm run db:apply`, que deja el esquema completo según `schema.sql`).
+2. **Ya tenías datos / tablas viejas** (p. ej. `boards` sin `created_at` o sin `board_members`): ejecuta `npm run db:migrate-legacy`, que aplica `database/migrate_legacy_to_phase1.sql`.
+3. **Solo falta Fase 2** (comentarios y responsables en tareas): si ya tienes el esquema Fase 1 en Neon, ejecuta `npm run db:migrate-phase2` o pega `database/migrate_phase2.sql` en el SQL Editor.
+4. **Solo falta Fase 3** (`users.display_name`, auditoría de solicitudes): ejecuta `npm run db:migrate-phase3` o pega `database/migrate_phase3.sql`.
+
+**Despliegue (Vercel + Neon):** en el proyecto de Vercel, define `DATABASE_URL` (URL de conexión de la rama de Neon que uses en producción), `NUXT_SESSION_SECRET` (cadena larga y secreta) y, si Nitro no resuelve la URL en build, `NUXT_DATABASE_URL` con el mismo valor que `DATABASE_URL`. Tras un despliegue que cambie el esquema, ejecuta en Neon las migraciones pendientes (`migrate_phase2.sql` / `migrate_phase3.sql`) o `npm run db:apply` solo en bases nuevas (borra datos).
+
+Detalle del roadmap por fases: `POSTLY_ROADMAP.md`.
 
 5. **Ejecutar en desarrollo**
 ```bash
@@ -73,6 +85,12 @@ La aplicación estará disponible en `http://localhost:3000`
 ```bash
 # Desarrollo
 npm run dev          # Inicia el servidor de desarrollo
+
+# Base de datos (Neon; usar URL directa sin pooler recomendado para DDL)
+npm run db:apply             # reset_neon + schema.sql (borra datos)
+npm run db:migrate-legacy    # Fase 1 sobre BD antigua
+npm run db:migrate-phase2    # tablas de comentarios / responsables
+npm run db:migrate-phase3    # display_name + columnas de resolución de solicitudes
 
 # Producción
 npm run build        # Construye la aplicación para producción
@@ -92,7 +110,8 @@ npm run generate     # Genera una versión estática
 
 ### Backend/Base de Datos
 - **Neon** - Postgres serverless
-- **@neondatabase/serverless** - Cliente para Neon
+- **@neondatabase/serverless** - Cliente Neon en rutas Nitro (`server/`)
+- **API REST** - Autenticación JWT y CRUD bajo `/api/*`
 
 ### Infraestructura
 - **Vercel** - Deploy y hosting (recomendado)
@@ -112,14 +131,22 @@ postly/
 │   ├── useBoard.ts     # Gestión del tablero
 │   ├── useColumns.ts   # Gestión de columnas
 │   ├── useTasks.ts     # Gestión de tareas
+│   ├── useTaskDetail.ts # Detalle, comentarios y responsables (Fase 2)
 │   ├── useGlossary.ts  # Gestión del glosario de colores
-│   └── useAuth.ts      # Autenticación con email/password
+│   ├── useAuth.ts      # Autenticación (JWT vía API)
+│   └── useApi.ts       # $fetch con Authorization
 ├── database/           # Scripts SQL
-│   ├── schema.sql      # Esquema base de la base de datos
-│   └── migration_users.sql # Migración para sistema de usuarios
-├── utils/              # Utilidades
-│   ├── db.ts           # Conexión y queries a Neon
-│   └── security.ts     # Hash y verificación de contraseñas
+│   ├── schema.sql      # Esquema actual (fuente de verdad)
+│   ├── migrate_phase2.sql / migrate_phase3.sql  # Migraciones incrementales
+│   └── reset_neon.sql  # Limpia tablas (antes de schema)
+├── server/             # Nitro: API y Neon
+│   ├── api/
+│   └── utils/
+├── middleware/
+│   └── auth.ts         # Protege /boards/*
+├── utils/
+│   ├── types.ts        # Tipos compartidos (importar desde aquí)
+│   └── security.ts
 ├── assets/             # Recursos estáticos
 │   └── styles/         # Estilos CSS
 │       ├── base.css    # Estilos base
@@ -130,7 +157,10 @@ postly/
 │   └── logo-png/       # Logos en formato PNG
 │       └── Logo-Postly.png
 ├── pages/              # Páginas de Nuxt
-│   └── index.vue       # Página principal
+│   ├── index.vue       # Login / redirección a tableros
+│   └── boards/
+│       ├── index.vue   # Listado, crear, unirse por ID
+│       └── [id].vue    # Kanban del tablero
 └── app.vue             # Componente raíz
 ```
 
@@ -193,7 +223,7 @@ Postly utiliza un sistema de autenticación por email y contraseña:
 ### Vercel (Recomendado)
 
 1. Conectar el repositorio a Vercel
-2. Configurar la variable de entorno `DATABASE_URL` en Vercel
+2. Configurar variables de entorno: `DATABASE_URL`, `NUXT_SESSION_SECRET` (secreto aleatorio largo para JWT)
 3. El deploy se realizará automáticamente en cada push
 
 ### Otros proveedores
@@ -341,14 +371,7 @@ interface GlossaryItem {
 
 ## 🔄 Migración de Base de Datos
 
-Si estás actualizando desde una versión anterior con sistema PIN:
-
-1. **Backup de datos**: Realiza un backup de tu base de datos antes de migrar
-2. **Ejecutar migración**: Copia y ejecuta el contenido de `database/migration_users.sql` en el SQL Editor de Neon
-3. **Datos existentes**: Si tienes datos en boards, el script incluye opciones para migrarlos a un usuario
-4. **Nuevos usuarios**: Los nuevos usuarios deberán registrarse con email/password
-
-**Nota**: Esta migración elimina el sistema PIN y requiere que los usuarios se registren nuevamente.
+Para la versión actual, el esquema está en `database/schema.sql`. Si vienes de un esquema antiguo (PIN o `boards.user_id`), lo más simple es ejecutar `database/reset_neon.sql` y luego `database/schema.sql`, y volver a registrarte. El archivo `database/migration_users.sql` queda solo como referencia histórica.
 
 ## 📝 Licencia
 

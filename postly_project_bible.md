@@ -11,7 +11,7 @@
 - Evitar sobre-ingeniería y dependencias innecesarias
 - Servir como proyecto personal real de uso diario
 
-Postly **no busca competir con Trello** ni ser una plataforma colaborativa.
+Postly **no busca competir con Trello** a escala enterprise; la colaboración (editores en tableros, comentarios en tareas) está pensada para equipos pequeños y uso personal serio.
 
 ---
 
@@ -27,36 +27,31 @@ Si una funcionalidad no ayuda directamente a organizar tareas, no entra.
 
 ---
 
-## 📦 Alcance funcional (MVP)
+## 📦 Alcance funcional (producto actual)
 
-### Tablero
-- Tablero único
-- Nombre editable del tablero
-- Persistente entre dispositivos
+### Cuenta y perfil
+- Registro e inicio de sesión (email + contraseña), JWT en cliente
+- **Nombre visible** (`display_name`) editable en perfil; si falta, se usa el email
 
-### Columnas
-- Mínimo **3 columnas obligatorias** (ej: Por hacer / En progreso / Hecho)
-- Crear nuevas columnas
-- Eliminar columnas (respetando mínimo 3)
-- Reordenar columnas (drag & drop)
+### Tableros
+- **Varios tableros** por usuario; listado separado en **Mis tableros** (dueño) y **Compartidos conmigo** (editor)
+- Crear tablero con columnas iniciales por defecto
+- Unirse por **ID de tablero** → solicitud pendiente al dueño
+- Copiar ID del tablero (feedback accesible)
 
-### Tareas (post-its)
-- Tareas simples
-- Contenido:
-  - Título (obligatorio)
-  - Color (opcional, para diferenciar proyectos o contexto)
-- Crear tareas
-- Eliminar tareas
-- Mover tareas:
-  - Dentro de la misma columna
-  - Entre columnas (drag & drop)
+### Colaboración
+- Roles **owner** y **editor** vía `board_members`
+- Dueño: ver solicitudes, aceptar/rechazar (queda registro de quién resolvió y cuándo)
+- Dueño: quitar editores
+- Comentarios en tareas (autor, texto, fecha) y **responsables** entre miembros del tablero
 
-❌ No incluye:
-- Descripciones largas
-- Fechas
-- Prioridades
-- Checklists
-- Comentarios
+### Columnas y tareas
+- Columnas personalizables, mínimo 3; crear, eliminar (respetando mínimo), reordenar (drag & drop)
+- Tareas tipo post-it: título, color opcional, mover dentro de la columna y entre columnas
+
+### Fuera de alcance (por ahora)
+- Notificaciones push, email o in-app
+- Descripciones largas en tarea, fechas de vencimiento, prioridades numéricas, checklists complejos
 
 ---
 
@@ -79,119 +74,61 @@ Si una funcionalidad no ayuda directamente a organizar tareas, no entra.
 
 ---
 
-## 🔐 Seguridad (sin login)
+## 🔐 Seguridad
 
-Postly no tendrá autenticación de usuarios.
-
-### Medida de seguridad ligera
-- **PIN local**:
-  - Se solicita al abrir la app
-  - Se guarda **hasheado** en la base de datos
-  - Protege el acceso casual (no es seguridad bancaria)
-
-Objetivo del PIN:
-- Evitar accesos accidentales
-- Mantener simplicidad
+- Contraseñas con hash (no en texto plano)
+- **JWT** firmado con `NUXT_SESSION_SECRET`; rutas API leen credenciales solo en servidor
+- **`DATABASE_URL`** y secreto no expuestos en `runtimeConfig.public`
+- Cliente **sin** SDK de Neon: todo acceso a datos vía **Nitro** `/api/*`
 
 ---
 
 ## 🗄️ Persistencia de datos
 
-### Base de datos
-- **Neon (Postgres serverless)**
-- Sin backend propio
-- Acceso directo desde el frontend
-
-### Motivo de usar Neon
-- Persistencia real (no localStorage)
-- Acceso desde PC y celular
-- No depender de Firebase
-- Mantener arquitectura simple
+- **Neon (Postgres serverless)** como única base de datos
+- Esquema canónico: `database/schema.sql` (ver también migraciones `migrate_phase2.sql`, `migrate_phase3.sql`)
+- API Nitro en `server/` ejecuta SQL con `@neondatabase/serverless`
 
 ---
 
-## 🧱 Modelo de datos
+## 🧱 Modelo de datos (resumen)
 
-### Board
-```ts
-Board {
-  id: string
-  name: string
-  pinHash: string
-}
-```
-
-### Column
-```ts
-Column {
-  id: string
-  boardId: string
-  title: string
-  order: number
-}
-```
-
-### Task
-```ts
-Task {
-  id: string
-  columnId: string
-  title: string
-  color?: string
-  order: number
-  createdAt: number
-}
-```
-
-- El orden visual se controla con el campo `order`
-- El color es solo decorativo / contextual
+La fuente de verdad son las tablas en `database/schema.sql`, entre ellas: `users` (incl. `display_name`), `boards`, `board_members`, `board_access_requests` (incl. `resolved_by_user_id`, `resolved_at`), `columns`, `tasks`, `task_comments`, `task_assignees`, `glossary`.
 
 ---
 
 ## ⚙️ Stack tecnológico
 
 ### Frontend
-- **Nuxt 3**
+- **Nuxt 4**
 - **Vue 3 (Composition API)**
 - **CSS puro** (sin frameworks)
-- **vue-draggable-plus** para drag & drop
+- **vuedraggable** para drag & drop en columnas
+
+### Backend / API
+- **Nitro** (rutas en `server/api/`), JWT, validación de membresía en tablero
 
 ### Infraestructura
-- **Vercel** (deploy)
+- **Vercel** (deploy recomendado)
 - **Neon** (Postgres serverless)
-
-### Lo que NO se usa
-- Firebase
-- Backend propio
-- Frameworks CSS
-- Librerías UI pesadas
 
 ---
 
-## 📁 Estructura del proyecto
+## 📁 Estructura del proyecto (orientativa)
 
 ```txt
 postly/
 ├─ pages/
-│  └─ index.vue        # Tablero principal
+│  ├─ index.vue           # Login / redirección
+│  └─ boards/
+│     ├─ index.vue        # Listado, perfil, crear / unirse
+│     └─ [id].vue         # Kanban
+├─ server/api/            # REST + Neon
 ├─ components/
-│  ├─ Board.vue
-│  ├─ Column.vue
-│  ├─ TaskCard.vue
-│  └─ PinGate.vue
-├─ composables/
-│  ├─ useBoard.ts
-│  ├─ useColumns.ts
-│  └─ useTasks.ts
-├─ utils/
-│  ├─ db.ts            # conexión Neon
-│  ├─ security.ts      # hash PIN
-│  └─ theme.ts
-├─ assets/
-│  └─ styles/
-│     ├─ variables.css
-│     └─ base.css
-└─ app.vue
+│  ├─ Board.vue, Column.vue, TaskCard.vue, Glossary.vue, LoginGate.vue, …
+├─ composables/           # useAuth, useBoard, useTasks, useTaskDetail, …
+├─ database/              # schema.sql y migraciones
+└─ utils/
 ```
 
 ---
@@ -199,44 +136,29 @@ postly/
 ## 🧩 Componentes clave
 
 ### Board.vue
-- Contenedor del tablero
-- Maneja columnas y layout general
+- Vista Kanban del tablero; modales de miembros, solicitudes (pendientes + historial reciente), detalle de tarea
 
-### Column.vue
-- Renderiza columna
-- Drag & drop de tareas
-- Crear / eliminar tareas
+### Column.vue / TaskCard.vue
+- Columnas y tarjetas; arrastre de tareas
 
-### TaskCard.vue
-- Representación visual del post-it
-- Manejo de color
-
-### PinGate.vue
-- Pantalla inicial
-- Solicita PIN
-- Bloquea acceso si no es válido
+### LoginGate.vue
+- Registro e inicio de sesión
 
 ---
 
 ## 🧠 Decisiones conscientes
 
-- **Sin auth**: reduce complejidad
-- **Sin backend**: foco en UX
-- **Sin exceso de features**: evita abandono
-- **CSS puro**: control total del diseño
+- **API en servidor**: evita exponer credenciales de BD en el cliente
+- **Sin framework CSS**: control del diseño con variables en `assets/styles`
+- **Roadmap por fases**: ver `POSTLY_ROADMAP.md`
 
 ---
 
-## 🚫 Fuera de alcance explícito
+## 🚫 Fuera de alcance explícito (hoy)
 
-- Colaboración
-- Usuarios múltiples
-- Compartir tableros
-- Fechas y recordatorios
-- Notificaciones
-- Analytics
-
-Si una idea entra aquí, se descarta.
+- Notificaciones in-app o por email
+- Fechas de vencimiento y recordatorios en tareas
+- Analytics de producto
 
 ---
 
