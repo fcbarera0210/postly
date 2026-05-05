@@ -1,5 +1,5 @@
 import { requireUserId } from '../../utils/requireAuth'
-import { dbGetUserById } from '../../utils/postly-db'
+import { dbGetUserById, userRowToPublic } from '../../utils/postly-db'
 
 export default defineEventHandler(async (event) => {
   const userId = requireUserId(event)
@@ -7,5 +7,5 @@ export default defineEventHandler(async (event) => {
   if (!user) {
     throw createError({ statusCode: 401, statusMessage: 'Usuario no encontrado' })
   }
-  return { id: user.id, email: user.email, display_name: user.display_name ?? null }
+  return userRowToPublic(user)
 })

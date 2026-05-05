@@ -15,14 +15,14 @@
   --shadow-postit-hover: 0 4px 8px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.1);
   
   /* Colores de post-its */
-  --postit-yellow: #ffeb3b;
-  --postit-pink: #f48fb1;
+  --postit-yellow: #FFB74D;
+  --postit-pink: #F06292;
   --postit-blue: #90caf9;
-  --postit-green: #a5d6a7;
+  --postit-green: #8CC63F;
   --postit-orange: #ffcc80;
-  --postit-purple: #ce93d8;
+  --postit-purple: #BA68C8;
   --postit-red: #ef9a9a;
-  --postit-cyan: #80deea;
+  --postit-cyan: #4DD0E1;
   --postit-default: #ffffff;
   
   /* Colores de marca */
@@ -85,14 +85,14 @@
     --shadow-postit-hover: 0 4px 8px rgba(0, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.4);
     
     /* Post-its en modo oscuro (más saturados) */
-    --postit-yellow: #ffd54f;
-    --postit-pink: #f06292;
-    --postit-blue: #64b5f6;
-    --postit-green: #81c784;
-    --postit-orange: #ffb74d;
-    --postit-purple: #ba68c8;
-    --postit-red: #e57373;
-    --postit-cyan: #4dd0e1;
+    --postit-yellow: #FFB74D;
+    --postit-pink: #F06292;
+    --postit-blue: #90caf9;
+    --postit-green: #8CC63F;
+    --postit-orange: #ffcc80;
+    --postit-purple: #BA68C8;
+    --postit-red: #ef9a9a;
+    --postit-cyan: #4DD0E1;
     --postit-default: #3a3a3a;
     
     /* Colores de marca en modo oscuro */

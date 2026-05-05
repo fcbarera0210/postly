@@ -6,10 +6,12 @@ import {
   applyPhase2MigrationFiles,
   applyPhase3MigrationFiles,
   applyPhase4MigrationFiles,
+  applyPhase5MigrationFiles,
   verifyPhase1Schema,
   verifyPhase2Schema,
   verifyPhase3Schema,
-  verifyPhase4Schema
+  verifyPhase4Schema,
+  verifyPhase5Schema
 } from '../utils/apply-legacy-migration'
 
 export default defineNitroPlugin(async () => {
@@ -36,8 +38,24 @@ export default defineNitroPlugin(async () => {
     const ok2 = ok1 ? await verifyPhase2Schema(sqlCheck) : false
     const ok3 = ok1 && ok2 ? await verifyPhase3Schema(sqlCheck) : false
     const ok4 = ok1 && ok2 && ok3 ? await verifyPhase4Schema(sqlCheck) : false
+    const ok5 = ok1 && ok2 && ok3 && ok4 ? await verifyPhase5Schema(sqlCheck) : false
 
-    if (ok1 && ok2 && ok3 && ok4) return
+    if (ok1 && ok2 && ok3 && ok4 && ok5) return
+
+    if (ok1 && ok2 && ok3 && ok4 && !ok5) {
+      console.warn('[postly] Falta users.accent_color. Aplicando migrate_phase5.sql…')
+      try {
+        await applyPhase5MigrationFiles(sqlMigrate)
+        if (await verifyPhase5Schema(sqlCheck)) {
+          console.info('[postly] Esquema Fase 5 aplicado al arranque.')
+          return
+        }
+      } catch (e) {
+        console.error('[postly] Error al aplicar Fase 5:', e)
+      }
+      console.error('[postly] Ejecuta manualmente: npm run db:migrate-phase5 o database/migrate_phase5.sql en Neon.')
+      return
+    }
 
     if (ok1 && ok2 && ok3 && !ok4) {
       console.warn('[postly] Falta columna tasks.description. Aplicando migrate_phase4.sql…')
@@ -45,6 +63,16 @@ export default defineNitroPlugin(async () => {
         await applyPhase4MigrationFiles(sqlMigrate)
         if (await verifyPhase4Schema(sqlCheck)) {
           console.info('[postly] Esquema Fase 4 aplicado al arranque.')
+          if (!(await verifyPhase5Schema(sqlCheck))) {
+            try {
+              await applyPhase5MigrationFiles(sqlMigrate)
+              if (await verifyPhase5Schema(sqlCheck)) {
+                console.info('[postly] Esquema Fase 5 aplicado al arranque.')
+              }
+            } catch (e) {
+              console.error('[postly] Error al aplicar Fase 5 tras Fase 4:', e)
+            }
+          }
           return
         }
       } catch (e) {
@@ -70,6 +98,16 @@ export default defineNitroPlugin(async () => {
               console.error('[postly] Error al aplicar Fase 4 tras Fase 3:', e)
             }
           }
+          if ((await verifyPhase4Schema(sqlCheck)) && !(await verifyPhase5Schema(sqlCheck))) {
+            try {
+              await applyPhase5MigrationFiles(sqlMigrate)
+              if (await verifyPhase5Schema(sqlCheck)) {
+                console.info('[postly] Esquema Fase 5 aplicado al arranque.')
+              }
+            } catch (e) {
+              console.error('[postly] Error al aplicar Fase 5 tras Fase 3:', e)
+            }
+          }
           return
         }
       } catch (e) {
@@ -93,6 +131,23 @@ export default defineNitroPlugin(async () => {
             }
           }
           if (await verifyPhase3Schema(sqlCheck)) {
+            if (!(await verifyPhase4Schema(sqlCheck))) {
+              try {
+                await applyPhase4MigrationFiles(sqlMigrate)
+              } catch (e) {
+                console.error('[postly] Error al aplicar Fase 4 tras Fase 2:', e)
+              }
+            }
+            if (
+              (await verifyPhase4Schema(sqlCheck)) &&
+              !(await verifyPhase5Schema(sqlCheck))
+            ) {
+              try {
+                await applyPhase5MigrationFiles(sqlMigrate)
+              } catch (e) {
+                console.error('[postly] Error al aplicar Fase 5 tras Fase 2:', e)
+              }
+            }
             return
           }
         }
@@ -150,13 +205,31 @@ export default defineNitroPlugin(async () => {
         console.error('[postly] Error al aplicar Fase 4 tras migración:', e)
       }
     }
+    if (
+      ok &&
+      (await verifyPhase2Schema(sqlCheck)) &&
+      (await verifyPhase3Schema(sqlCheck)) &&
+      (await verifyPhase4Schema(sqlCheck)) &&
+      !(await verifyPhase5Schema(sqlCheck))
+    ) {
+      try {
+        await applyPhase5MigrationFiles(sqlMigrate)
+      } catch (e) {
+        console.error('[postly] Error al aplicar Fase 5 tras migración:', e)
+      }
+    }
 
     const phase2Ok = ok && (await verifyPhase2Schema(sqlCheck))
     const phase3Ok = ok && phase2Ok && (await verifyPhase3Schema(sqlCheck))
     const phase4Ok = ok && phase2Ok && phase3Ok && (await verifyPhase4Schema(sqlCheck))
+    const phase5Ok = ok && phase2Ok && phase3Ok && phase4Ok && (await verifyPhase5Schema(sqlCheck))
 
-    if (ok && phase2Ok && phase3Ok && phase4Ok) {
-      console.info('[postly] Esquema verificado correctamente (Fase 1 + 2 + 3 + 4).')
+    if (ok && phase2Ok && phase3Ok && phase4Ok && phase5Ok) {
+      console.info('[postly] Esquema verificado correctamente (Fase 1 + 2 + 3 + 4 + 5).')
+    } else if (ok && phase2Ok && phase3Ok && phase4Ok && !phase5Ok) {
+      console.error(
+        '[postly] Falta users.accent_color (Fase 5). Ejecuta: npm run db:migrate-phase5 o database/migrate_phase5.sql en Neon.'
+      )
     } else if (ok && phase2Ok && phase3Ok && !phase4Ok) {
       console.error(
         '[postly] Falta columna tasks.description (Fase 4). Ejecuta: npm run db:migrate-phase4 o database/migrate_phase4.sql en Neon.'

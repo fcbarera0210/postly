@@ -7,6 +7,7 @@ export interface UserRow {
   password_hash: string
   created_at: number
   display_name: string | null
+  accent_color: string | null
 }
 
 export interface BoardRow {
@@ -31,11 +32,31 @@ export async function dbCreateUser(id: string, email: string, passwordHash: stri
     'INSERT INTO users (id, email, password_hash, created_at, display_name) VALUES ($1, $2, $3, $4, $5)',
     [id, email, passwordHash, createdAt, displayName]
   )
-  return { id, email, password_hash: passwordHash, created_at: createdAt, display_name: displayName }
+  return {
+    id,
+    email,
+    password_hash: passwordHash,
+    created_at: createdAt,
+    display_name: displayName,
+    accent_color: null
+  }
 }
 
 export async function dbUpdateUserDisplayName(userId: string, displayName: string | null): Promise<void> {
   await query('UPDATE users SET display_name = $1 WHERE id = $2', [displayName, userId])
+}
+
+export async function dbUpdateUserAccentColor(userId: string, accentColor: string | null): Promise<void> {
+  await query('UPDATE users SET accent_color = $1 WHERE id = $2', [accentColor, userId])
+}
+
+export function userRowToPublic(user: UserRow) {
+  return {
+    id: user.id,
+    email: user.email,
+    display_name: user.display_name ?? null,
+    accent_color: user.accent_color ?? null
+  }
 }
 
 export async function dbGetUserByEmail(email: string): Promise<UserRow | null> {

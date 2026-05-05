@@ -10,6 +10,12 @@ export const POSTIT_COLOR_OPTIONS = [
   { value: 'cyan', label: 'Cian', bg: 'var(--postit-cyan)' }
 ] as const
 
+export type UserAccentColorKey = (typeof POSTIT_COLOR_OPTIONS)[number]['value']
+
+export function isUserAccentColorKey(v: unknown): v is UserAccentColorKey {
+  return typeof v === 'string' && POSTIT_COLOR_OPTIONS.some((o) => o.value === v)
+}
+
 const DEFAULT_BG = 'var(--postit-default)'
 
 export function postitBackgroundCss(color: string | null): string {

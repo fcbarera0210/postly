@@ -124,6 +124,28 @@
           placeholder="Cómo te mostramos en el tablero"
           autocomplete="nickname"
         />
+        <span class="boards-page__profile-label boards-page__profile-label--block">Color de acento</span>
+        <div class="boards-page__accent-row" role="group" aria-label="Color de acento de la interfaz">
+          <button
+            type="button"
+            class="boards-page__accent-swatch boards-page__accent-swatch--brand"
+            :class="{ 'boards-page__accent-swatch--active': profileAccentDraft === null }"
+            title="Coral (marca por defecto)"
+            aria-label="Coral, marca por defecto"
+            @click="profileAccentDraft = null"
+          />
+          <button
+            v-for="c in POSTIT_COLOR_OPTIONS"
+            :key="c.value"
+            type="button"
+            class="boards-page__accent-swatch"
+            :style="{ background: c.bg }"
+            :class="{ 'boards-page__accent-swatch--active': profileAccentDraft === c.value }"
+            :title="c.label"
+            :aria-label="c.label"
+            @click="profileAccentDraft = c.value"
+          />
+        </div>
         <div class="boards-page__modal-actions">
           <button
             type="button"
@@ -147,6 +169,7 @@ import { apiFetch } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
 import { usePostlyToast } from '~/composables/usePostlyToast'
 import { userLabel } from '~/utils/userLabel'
+import { POSTIT_COLOR_OPTIONS } from '~/utils/postitColors'
 definePageMeta({
   middleware: 'auth'
 })
@@ -164,6 +187,7 @@ const joining = ref(false)
 const currentUser = ref<User | null>(null)
 const profileOpen = ref(false)
 const profileDraft = ref('')
+const profileAccentDraft = ref<string | null>(null)
 const profileEmail = ref('')
 const profileSaving = ref(false)
 const copiedBoardId = ref<string | null>(null)
@@ -204,6 +228,7 @@ onMounted(async () => {
 function openProfile() {
   profileEmail.value = currentUser.value?.email ?? ''
   profileDraft.value = currentUser.value?.display_name ?? ''
+  profileAccentDraft.value = currentUser.value?.accent_color ?? null
   profileOpen.value = true
 }
 
@@ -215,7 +240,10 @@ async function saveProfile() {
   profileSaving.value = true
   try {
     const trimmed = profileDraft.value.trim()
-    const nextUser = await updateProfile(trimmed.length ? trimmed : null)
+    const nextUser = await updateProfile({
+      display_name: trimmed.length ? trimmed : null,
+      accent_color: profileAccentDraft.value
+    })
     currentUser.value = nextUser
     success('Perfil guardado')
     closeProfile()
@@ -534,5 +562,35 @@ function handleLogout() {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-sm);
+}
+
+.boards-page__accent-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.boards-page__accent-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--border-radius-sm);
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.boards-page__accent-swatch--brand {
+  background: linear-gradient(135deg, #ff5a4d, #ff7a6d);
+}
+
+.boards-page__accent-swatch:hover {
+  filter: brightness(0.97);
+}
+
+.boards-page__accent-swatch--active {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
 }
 </style>

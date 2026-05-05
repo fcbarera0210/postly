@@ -16,7 +16,8 @@ CREATE TABLE users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   created_at BIGINT NOT NULL,
-  display_name TEXT
+  display_name TEXT,
+  accent_color TEXT
 );
 
 CREATE INDEX idx_users_email ON users(email);

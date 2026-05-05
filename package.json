@@ -8,6 +8,7 @@
     "db:migrate-phase2": "node scripts/migrate-phase2.mjs",
     "db:migrate-phase3": "node scripts/migrate-phase3.mjs",
     "db:migrate-phase4": "node scripts/migrate-phase4.mjs",
+    "db:migrate-phase5": "node scripts/migrate-phase5.mjs",
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",

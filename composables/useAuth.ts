@@ -1,5 +1,5 @@
 import { apiFetch } from '~/composables/useApi'
-import type { User } from '~/utils/types'
+import type { User, UserProfilePatch } from '~/utils/types'
 
 const TOKEN_KEY = 'postly_token'
 const USER_EMAIL_KEY = 'postly_user_email'
@@ -54,6 +54,7 @@ export function useAuth() {
     })
     localStorage.setItem(TOKEN_KEY, res.token)
     localStorage.setItem(USER_EMAIL_KEY, res.user.email)
+    useAccentColor().applyAccentFromUser(res.user)
     return res.user
   }
 
@@ -72,19 +73,23 @@ export function useAuth() {
     })
     localStorage.setItem(TOKEN_KEY, res.token)
     localStorage.setItem(USER_EMAIL_KEY, res.user.email)
+    useAccentColor().applyAccentFromUser(res.user)
     return res.user
   }
 
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_EMAIL_KEY)
+    useAccentColor().clearAccentOverrides()
   }
 
-  const updateProfile = async (display_name: string | null): Promise<User> => {
-    return apiFetch<User>('/api/auth/me', {
+  const updateProfile = async (patch: UserProfilePatch): Promise<User> => {
+    const user = await apiFetch<User>('/api/auth/me', {
       method: 'PATCH',
-      body: { display_name }
+      body: patch
     })
+    useAccentColor().applyAccentFromUser(user)
+    return user
   }
 
   return {

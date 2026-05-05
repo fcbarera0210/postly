@@ -1,7 +1,7 @@
 import { verifyPassword } from '~/utils/security'
 import { signJwt } from '../../utils/jwt'
 import { resolveJwtSecret } from '../../utils/resolve-jwt-secret'
-import { dbGetUserByEmail } from '../../utils/postly-db'
+import { dbGetUserByEmail, userRowToPublic } from '../../utils/postly-db'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ email?: string; password?: string }>(event)
@@ -34,6 +34,6 @@ export default defineEventHandler(async (event) => {
 
   return {
     token,
-    user: { id: user.id, email: user.email, display_name: user.display_name ?? null }
+    user: userRowToPublic(user)
   }
 })

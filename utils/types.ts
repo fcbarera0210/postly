@@ -2,6 +2,14 @@ export interface User {
   id: string
   email: string
   display_name?: string | null
+  /** Clave post-it o null = color de marca por defecto (variables.css). */
+  accent_color?: string | null
+}
+
+/** Cuerpo parcial para PATCH /api/auth/me */
+export interface UserProfilePatch {
+  display_name?: string | null
+  accent_color?: string | null
 }
 
 export interface Board {

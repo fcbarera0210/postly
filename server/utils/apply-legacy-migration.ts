@@ -146,3 +146,21 @@ export async function applyPhase4MigrationFiles(neonSql: ReturnType<typeof neon>
     await neonSql.unsafe(stmt)
   }
 }
+
+export async function verifyPhase5Schema(neonSql: ReturnType<typeof neon>): Promise<boolean> {
+  const c = await neonSql`
+    SELECT 1 AS x FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'accent_color'
+    LIMIT 1
+  `
+  return Array.isArray(c) && c.length > 0
+}
+
+export async function applyPhase5MigrationFiles(neonSql: ReturnType<typeof neon>) {
+  const root = resolveProjectRoot()
+  const path = join(root, 'database', 'migrate_phase5.sql')
+  const body = readFileSync(path, 'utf8')
+  for (const stmt of parseSqlStatements(body)) {
+    await neonSql.unsafe(stmt)
+  }
+}
