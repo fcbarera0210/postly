@@ -40,8 +40,6 @@
         :animation="200"
         :group="{ name: 'tasks', pull: true, put: true }"
         item-key="id"
-        :filter="'.is-editing'"
-        :prevent-on-filter="true"
         :force-fallback="false"
         :ghost-class="'sortable-ghost'"
         :drag-class="'sortable-drag'"
@@ -54,7 +52,6 @@
           <TaskCard
             :task="element"
             @delete="() => $emit('task-delete', element.id)"
-            @update="handleTaskUpdate"
             @open-detail="$emit('task-open-detail', element.id)"
           />
         </template>
@@ -304,10 +301,6 @@ watch(() => props.addTaskTrigger, (trigger) => {
     })
   }
 })
-
-function handleTaskUpdate(taskId: string, updates: { title?: string; color?: string | null }) {
-  emit('task-update', taskId, updates)
-}
 
 function handleTaskDragEnd() {
   // Resetear isDragging después de un pequeño delay para permitir que handleTaskChange complete

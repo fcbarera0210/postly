@@ -1,34 +1,19 @@
 <template>
   <div
     class="task-card"
-    :class="[`task-card--${colorClass}`, { 'is-editing': isEditing }]"
+    :class="[`task-card--${colorClass}`]"
     :style="cardStyle"
     @click="handleCardClick"
-    @touchstart="handleTouchStart"
-    @touchend="handleTouchEnd"
-    @touchmove="handleTouchMove"
   >
     <div class="task-card__content">
-      <input
-        v-if="isEditing"
-        v-model="editedTitle"
-        class="task-card__title-input"
-        :style="{ color: cardStyle.color }"
-        @keyup.enter="handleSave"
-        @keyup.esc="cancelEdit"
-        @click.stop
-        ref="titleInputRef"
-      />
       <p
-        v-else
         class="task-card__title"
         :style="{ color: cardStyle.color }"
-        @click.stop="onTitleClick"
-        @dblclick.stop="onTitleDblClick"
+        @click.stop="$emit('open-detail')"
       >
         {{ task.title }}
       </p>
-      <div v-if="!isEditing" class="task-card__footer">
+      <div class="task-card__footer">
         <div class="task-card__assignees" aria-label="Responsables">
           <span
             v-for="a in assigneesShown"
@@ -59,60 +44,6 @@
         </button>
       </div>
     </div>
-    <div 
-      v-if="isEditing" 
-      class="task-card__edit-actions"
-    >
-      <div 
-        class="task-card__color-picker" 
-        @click.stop.prevent
-        @mousedown.stop.prevent
-        ref="colorPickerRef"
-      >
-        <button
-          v-for="color in availableColors"
-          :key="color.value"
-          type="button"
-          class="task-card__color-option"
-          :class="{ 'task-card__color-option--active': selectedColor === color.value }"
-          :style="{ backgroundColor: color.bg }"
-          @click.stop.prevent="handleColorSelect(color.value)"
-          @touchstart.stop.prevent="handleColorSelect(color.value)"
-          @mousedown.stop.prevent
-          :title="color.label"
-          :aria-label="`Color ${color.label}`"
-        />
-        <button
-          type="button"
-          class="task-card__color-option task-card__color-option--clear"
-          :class="{ 'task-card__color-option--active': selectedColor === null }"
-          @click.stop.prevent="handleColorSelect(null)"
-          @touchstart.stop.prevent="handleColorSelect(null)"
-          @mousedown.stop.prevent
-          title="Sin color"
-          aria-label="Sin color"
-        >
-          ×
-        </button>
-      </div>
-      <div class="task-card__form-actions">
-        <button
-          class="task-card__form-button task-card__form-button--primary"
-          @click.stop.prevent="handleSave"
-          @touchstart.stop.prevent="(e) => { e.preventDefault(); handleSave(); }"
-          :disabled="!editedTitle.trim() || editedTitle.trim().length < 3"
-        >
-          Guardar
-        </button>
-        <button
-          class="task-card__form-button"
-          @click.stop.prevent="cancelEdit"
-          @touchstart.stop.prevent="(e) => { e.preventDefault(); cancelEdit(); }"
-        >
-          Cancelar
-        </button>
-      </div>
-    </div>
     <button
       type="button"
       class="task-card__delete"
@@ -126,24 +57,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { ChatBubbleLeftRightIcon } from '@heroicons/vue/24/outline'
 import type { Task, TaskAssignee } from '~/utils/types'
 import { userInitials, userLabel } from '~/utils/userLabel'
+import { postitBackgroundCss } from '~/utils/postitColors'
 
-const TITLE_DETAIL_DELAY_MS = 400
 const MAX_AVATAR_CHIPS = 3
-
-let titleOpenTimer: ReturnType<typeof setTimeout> | null = null
-
-function clearTitleOpenTimer() {
-  if (titleOpenTimer) {
-    clearTimeout(titleOpenTimer)
-    titleOpenTimer = null
-  }
-}
-
-onUnmounted(() => clearTitleOpenTimer())
 
 function avatarBg(userId: string): string {
   let n = 0
@@ -159,15 +79,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   delete: []
-  update: [taskId: string, updates: { title?: string; color?: string | null }]
   'open-detail': []
 }>()
-
-const isEditing = ref(false)
-const editedTitle = ref('')
-const selectedColor = ref<string | null>(null)
-const titleInputRef = ref<HTMLInputElement | null>(null)
-const colorPickerRef = ref<HTMLDivElement | null>(null)
 
 const assigneesList = computed(() => props.task.assignees ?? [])
 const assigneesShown = computed<TaskAssignee[]>(() =>
@@ -177,89 +90,50 @@ const assigneesExtra = computed(() =>
   Math.max(0, assigneesList.value.length - MAX_AVATAR_CHIPS)
 )
 
-function onTitleClick() {
-  clearTitleOpenTimer()
-  titleOpenTimer = setTimeout(() => {
-    titleOpenTimer = null
-    emit('open-detail')
-  }, TITLE_DETAIL_DELAY_MS)
-}
-
-function onTitleDblClick(e: MouseEvent) {
-  e.preventDefault()
-  clearTitleOpenTimer()
-  startEdit()
-}
-
 function handleCardClick(e: MouseEvent) {
-  if (isEditing.value) return
   const el = e.target as HTMLElement
   if (el.closest('.task-card__delete')) return
   if (el.closest('.task-card__title')) return
   emit('open-detail')
 }
 
-// Long press para móvil
-let longPressTimer: ReturnType<typeof setTimeout> | null = null
-let touchStartX = 0
-let touchStartY = 0
-let hasMoved = false
-const LONG_PRESS_DURATION = 500 // ms
-const MOVE_THRESHOLD = 10 // píxeles de movimiento para considerar drag
-
-// Función para obtener el valor RGB de una variable CSS
 function getCSSVariableValue(variableName: string): string {
   if (typeof window === 'undefined') return '#ffffff'
   return getComputedStyle(document.documentElement).getPropertyValue(variableName).trim()
 }
 
-// Función para convertir hex a RGB
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  // Remover # si existe
   hex = hex.replace('#', '')
-  
-  // Si es formato corto (3 caracteres), expandir
   if (hex.length === 3) {
-    hex = hex.split('').map(char => char + char).join('')
+    hex = hex.split('').map((char) => char + char).join('')
   }
-  
   if (hex.length !== 6) return null
-  
   const r = parseInt(hex.substring(0, 2), 16)
   const g = parseInt(hex.substring(2, 4), 16)
   const b = parseInt(hex.substring(4, 6), 16)
-  
   return { r, g, b }
 }
 
-// Función para calcular la luminosidad relativa (WCAG)
 function getLuminance(r: number, g: number, b: number): number {
-  // Normalizar valores RGB a 0-1
-  const [rs, gs, bs] = [r, g, b].map(val => {
+  const [rs, gs, bs] = [r, g, b].map((val) => {
     val = val / 255
     return val <= 0.03928 ? val / 12.92 : Math.pow((val + 0.055) / 1.055, 2.4)
   })
-  
-  // Fórmula de luminosidad relativa
   return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs
 }
 
-// Función para obtener el color de texto óptimo según el fondo
 function getContrastColor(backgroundColor: string): string {
   if (!backgroundColor) return 'var(--text-primary)'
-  
+
   let rgb: { r: number; g: number; b: number } | null = null
-  
-  // Si es una variable CSS, obtener su valor
+
   if (backgroundColor.startsWith('var(')) {
     const varName = backgroundColor.match(/var\(([^)]+)\)/)?.[1]
     if (varName) {
       const cssValue = getCSSVariableValue(varName)
-      // Si el valor CSS es un hex, convertir
       if (cssValue.startsWith('#')) {
         rgb = hexToRgb(cssValue)
       } else if (cssValue.startsWith('rgb')) {
-        // Extraer valores RGB de rgb() o rgba()
         const matches = cssValue.match(/\d+/g)
         if (matches && matches.length >= 3) {
           rgb = {
@@ -271,10 +145,8 @@ function getContrastColor(backgroundColor: string): string {
       }
     }
   } else if (backgroundColor.startsWith('#')) {
-    // Si es un hex directo
     rgb = hexToRgb(backgroundColor)
   } else if (backgroundColor.startsWith('rgb')) {
-    // Si es rgb() o rgba()
     const matches = backgroundColor.match(/\d+/g)
     if (matches && matches.length >= 3) {
       rgb = {
@@ -284,118 +156,10 @@ function getContrastColor(backgroundColor: string): string {
       }
     }
   }
-  
-  // Si no pudimos obtener RGB, usar color por defecto
+
   if (!rgb) return 'var(--text-primary)'
-  
-  // Calcular luminosidad
   const luminance = getLuminance(rgb.r, rgb.g, rgb.b)
-  
-  // Si la luminosidad es mayor a 0.5, usar texto oscuro; si no, texto claro
   return luminance > 0.5 ? '#1a1a1a' : '#f5f5f5'
-}
-
-const availableColors = [
-  { value: 'yellow', label: 'Amarillo', bg: 'var(--postit-yellow)' },
-  { value: 'pink', label: 'Rosa', bg: 'var(--postit-pink)' },
-  { value: 'blue', label: 'Azul', bg: 'var(--postit-blue)' },
-  { value: 'green', label: 'Verde', bg: 'var(--postit-green)' },
-  { value: 'orange', label: 'Naranja', bg: 'var(--postit-orange)' },
-  { value: 'purple', label: 'Morado', bg: 'var(--postit-purple)' },
-  { value: 'red', label: 'Rojo', bg: 'var(--postit-red)' },
-  { value: 'cyan', label: 'Cian', bg: 'var(--postit-cyan)' }
-]
-
-function startEdit() {
-  editedTitle.value = props.task.title
-  selectedColor.value = props.task.color
-  isEditing.value = true
-  nextTick(() => {
-    titleInputRef.value?.focus()
-    titleInputRef.value?.select()
-  })
-}
-
-function handleSave() {
-  if (editedTitle.value.trim() && editedTitle.value.trim().length >= 3) {
-    if (editedTitle.value !== props.task.title || selectedColor.value !== props.task.color) {
-      emit('update', props.task.id, {
-        title: editedTitle.value.trim(),
-        color: selectedColor.value
-      })
-    }
-  }
-  isEditing.value = false
-}
-
-function handleColorSelect(color: string | null) {
-  selectedColor.value = color
-  // No cerrar el editor, solo actualizar el color visualmente
-}
-
-function cancelEdit() {
-  editedTitle.value = props.task.title
-  selectedColor.value = props.task.color
-  isEditing.value = false
-}
-
-// Handlers para long press en móvil
-function handleTouchStart(e: TouchEvent) {
-  // Solo activar si no está en modo edición
-  if (isEditing.value) {
-    // Permitir que los eventos touch pasen a los elementos hijos cuando está editando
-    return
-  }
-  
-  // Si el touch es en un botón o elemento interactivo, no hacer nada
-  const target = e.target as HTMLElement
-  if (target.closest('.task-card__form-button') ||
-      target.closest('.task-card__color-option') ||
-      target.closest('.task-card__edit-actions') ||
-      target.closest('.task-card__detail-btn') ||
-      target.closest('.task-card__footer')) {
-    return
-  }
-  
-  // Guardar posición inicial
-  const touch = e.touches[0]
-  touchStartX = touch.clientX
-  touchStartY = touch.clientY
-  hasMoved = false
-  
-  // Iniciar timer para long press
-  longPressTimer = setTimeout(() => {
-    // Solo activar edición si no se ha movido
-    if (!hasMoved) {
-      e.preventDefault() // Prevenir zoom solo cuando se activa el long press
-      startEdit()
-    }
-    longPressTimer = null
-  }, LONG_PRESS_DURATION)
-}
-
-function handleTouchEnd() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-  hasMoved = false
-}
-
-function handleTouchMove(e: TouchEvent) {
-  // Si hay movimiento, cancelar el long press y permitir drag & drop
-  if (longPressTimer && e.touches.length > 0) {
-    const touch = e.touches[0]
-    const deltaX = Math.abs(touch.clientX - touchStartX)
-    const deltaY = Math.abs(touch.clientY - touchStartY)
-    
-    // Si el movimiento supera el umbral, es un drag
-    if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
-      hasMoved = true
-      clearTimeout(longPressTimer)
-      longPressTimer = null
-    }
-  }
 }
 
 const colorClass = computed(() => {
@@ -404,27 +168,10 @@ const colorClass = computed(() => {
 })
 
 const cardStyle = computed(() => {
-  const colorMap: Record<string, string> = {
-    yellow: 'var(--postit-yellow)',
-    pink: 'var(--postit-pink)',
-    blue: 'var(--postit-blue)',
-    green: 'var(--postit-green)',
-    orange: 'var(--postit-orange)',
-    purple: 'var(--postit-purple)',
-    red: 'var(--postit-red)',
-    cyan: 'var(--postit-cyan)',
-    default: 'var(--postit-default)'
-  }
-
-  const bgColor = props.task.color 
-    ? (colorMap[props.task.color] || colorMap.default)
-    : colorMap.default
-  
-  const textColor = getContrastColor(bgColor)
-  
+  const bgColor = postitBackgroundCss(props.task.color)
   return {
     backgroundColor: bgColor,
-    color: textColor
+    color: getContrastColor(bgColor)
   }
 })
 </script>
@@ -444,22 +191,16 @@ const cardStyle = computed(() => {
   user-select: none;
 }
 
-.task-card.is-editing {
-  cursor: default;
-  user-select: text;
-}
-
-.task-card:active:not(.is-editing) {
+.task-card:active {
   cursor: grabbing !important;
   transform: rotate(1deg) scale(1.02);
 }
 
-.task-card:hover:not(.is-editing) {
+.task-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-postit-hover);
 }
 
-/* Estilos para el elemento ghost durante el drag */
 .task-card.sortable-ghost {
   opacity: 0.4;
   cursor: grabbing !important;
@@ -478,7 +219,7 @@ const cardStyle = computed(() => {
     min-height: 80px;
     padding: var(--spacing-sm);
   }
-  
+
   .task-card:active {
     transform: rotate(0.5deg) scale(1.01);
   }
@@ -563,84 +304,8 @@ const cardStyle = computed(() => {
   color: var(--text-primary);
   word-wrap: break-word;
   margin: 0;
-  cursor: text;
-  font-weight: var(--font-weight-normal);
-}
-
-.task-card__title-input {
-  width: 100%;
-  font-size: var(--font-size-base);
-  line-height: 1.4;
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.3);
-  border: 2px solid var(--postit-blue);
-  border-radius: var(--border-radius-sm);
-  padding: var(--spacing-xs);
-  font-family: inherit;
-  resize: none;
-}
-
-.task-card__edit-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-sm);
-  position: relative;
-  z-index: 20;
-  touch-action: manipulation;
-}
-
-.task-card__color-picker {
-  display: flex;
-  gap: var(--spacing-xs);
-  flex-wrap: wrap;
-  padding: var(--spacing-xs);
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: var(--border-radius-sm);
-  position: relative;
-  z-index: 10;
-  pointer-events: auto;
-}
-
-.task-card__color-option {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid transparent;
   cursor: pointer;
-  transition: all var(--transition-base);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 21;
-  pointer-events: auto;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.task-card__color-option:hover {
-  transform: scale(1.2);
-  border-color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
-}
-
-.task-card__color-option:active {
-  transform: scale(1.1);
-}
-
-.task-card__color-option--active {
-  border-color: var(--text-primary);
-  box-shadow: var(--shadow-md);
-  transform: scale(1.25);
-}
-
-.task-card__color-option--clear {
-  background: rgba(255, 255, 255, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  line-height: 1;
-  font-weight: bold;
+  font-weight: var(--font-weight-normal);
 }
 
 .task-card__delete {
@@ -671,63 +336,5 @@ const cardStyle = computed(() => {
 
 .task-card__delete:active {
   transform: scale(1.1);
-}
-
-.task-card__form-actions {
-  display: flex;
-  gap: var(--spacing-sm);
-  touch-action: manipulation;
-}
-
-.task-card__form-button {
-  flex: 1;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: var(--border-radius-sm);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  transition: all var(--transition-base);
-  cursor: pointer;
-  border: none;
-  font-family: inherit;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  z-index: 21;
-}
-
-.task-card__form-button--primary {
-  background: var(--brand-primary);
-  color: white;
-}
-
-.task-card__form-button--primary:hover:not(:disabled) {
-  background: var(--brand-primary-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-.task-card__form-button--primary:active:not(:disabled) {
-  background: var(--brand-primary-active);
-  transform: translateY(0);
-}
-
-.task-card__form-button:not(.task-card__form-button--primary) {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-}
-
-.task-card__form-button:not(.task-card__form-button--primary):hover {
-  background: var(--bg-primary);
-  border-color: var(--text-secondary);
-}
-
-.task-card__form-button:not(.task-card__form-button--primary):active {
-  transform: scale(0.98);
-}
-
-.task-card__form-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 </style>

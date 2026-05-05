@@ -360,12 +360,18 @@ export async function dbCreateTask(
   )
 }
 
-export async function dbUpdateTask(id: string, title?: string, color?: string | null) {
-  if (title !== undefined) {
-    await query('UPDATE tasks SET title = $1 WHERE id = $2', [title, id])
+export async function dbUpdateTask(
+  id: string,
+  patch: { title?: string; color?: string | null; description?: string | null }
+) {
+  if (patch.title !== undefined) {
+    await query('UPDATE tasks SET title = $1 WHERE id = $2', [patch.title, id])
   }
-  if (color !== undefined) {
-    await query('UPDATE tasks SET color = $1 WHERE id = $2', [color, id])
+  if (patch.color !== undefined) {
+    await query('UPDATE tasks SET color = $1 WHERE id = $2', [patch.color, id])
+  }
+  if (patch.description !== undefined) {
+    await query('UPDATE tasks SET description = $1 WHERE id = $2', [patch.description, id])
   }
 }
 
@@ -467,6 +473,7 @@ export interface TaskDetailPayload {
     column_id: string
     title: string
     color: string | null
+    description: string | null
     order: number
     created_at: number
   }
@@ -480,10 +487,11 @@ export async function dbGetTaskDetail(taskId: string, boardId: string): Promise<
     column_id: string
     title: string
     color: string | null
+    description: string | null
     order: number
     created_at: number
   }>(
-    `SELECT t.id, t.column_id, t.title, t.color, t."order", t.created_at
+    `SELECT t.id, t.column_id, t.title, t.color, t.description, t."order", t.created_at
      FROM tasks t
      INNER JOIN columns c ON c.id = t.column_id
      WHERE t.id = $1 AND c.board_id = $2`,

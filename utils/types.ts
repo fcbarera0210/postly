@@ -54,6 +54,8 @@ export interface Task {
   column_id: string
   title: string
   color: string | null
+  /** Markdown opcional; suele venir solo en el detalle de la tarea */
+  description?: string | null
   order: number
   created_at: number
   /** Presente en listados Kanban cuando la API los incluye */

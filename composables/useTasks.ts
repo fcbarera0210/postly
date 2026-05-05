@@ -76,7 +76,10 @@ export function useTasks(boardId: Ref<string | null> | ComputedRef<string | null
     }
   }
 
-  const update = async (taskId: string, updates: { title?: string; color?: string | null }) => {
+  const update = async (
+    taskId: string,
+    updates: { title?: string; color?: string | null; description?: string | null }
+  ) => {
     loading.value = true
     error.value = null
     try {
@@ -88,6 +91,7 @@ export function useTasks(boardId: Ref<string | null> | ComputedRef<string | null
       if (task) {
         if (updates.title !== undefined) task.title = updates.title
         if (updates.color !== undefined) task.color = updates.color
+        if (updates.description !== undefined) task.description = updates.description
       }
     } catch (err) {
       error.value = 'Error al actualizar la tarea'

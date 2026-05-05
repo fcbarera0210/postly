@@ -64,6 +64,7 @@ CREATE TABLE tasks (
   column_id TEXT NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   color TEXT,
+  description TEXT,
   "order" INTEGER NOT NULL,
   created_at BIGINT NOT NULL
 );

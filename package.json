@@ -7,6 +7,7 @@
     "db:migrate-legacy": "node scripts/migrate-legacy.mjs",
     "db:migrate-phase2": "node scripts/migrate-phase2.mjs",
     "db:migrate-phase3": "node scripts/migrate-phase3.mjs",
+    "db:migrate-phase4": "node scripts/migrate-phase4.mjs",
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
@@ -16,6 +17,8 @@
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
     "@neondatabase/serverless": "^1.0.2",
+    "isomorphic-dompurify": "^3.12.0",
+    "marked": "^18.0.3",
     "nanoid": "^5.1.6",
     "nuxt": "^4.2.2",
     "vue": "^3.5.26",

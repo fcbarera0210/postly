@@ -5,9 +5,11 @@ import {
   applyLegacyMigrationFiles,
   applyPhase2MigrationFiles,
   applyPhase3MigrationFiles,
+  applyPhase4MigrationFiles,
   verifyPhase1Schema,
   verifyPhase2Schema,
-  verifyPhase3Schema
+  verifyPhase3Schema,
+  verifyPhase4Schema
 } from '../utils/apply-legacy-migration'
 
 export default defineNitroPlugin(async () => {
@@ -33,8 +35,24 @@ export default defineNitroPlugin(async () => {
     const ok1 = await verifyPhase1Schema(sqlCheck)
     const ok2 = ok1 ? await verifyPhase2Schema(sqlCheck) : false
     const ok3 = ok1 && ok2 ? await verifyPhase3Schema(sqlCheck) : false
+    const ok4 = ok1 && ok2 && ok3 ? await verifyPhase4Schema(sqlCheck) : false
 
-    if (ok1 && ok2 && ok3) return
+    if (ok1 && ok2 && ok3 && ok4) return
+
+    if (ok1 && ok2 && ok3 && !ok4) {
+      console.warn('[postly] Falta columna tasks.description. Aplicando migrate_phase4.sql…')
+      try {
+        await applyPhase4MigrationFiles(sqlMigrate)
+        if (await verifyPhase4Schema(sqlCheck)) {
+          console.info('[postly] Esquema Fase 4 aplicado al arranque.')
+          return
+        }
+      } catch (e) {
+        console.error('[postly] Error al aplicar Fase 4:', e)
+      }
+      console.error('[postly] Ejecuta manualmente: npm run db:migrate-phase4 o database/migrate_phase4.sql en Neon.')
+      return
+    }
 
     if (ok1 && ok2 && !ok3) {
       console.warn('[postly] Falta Fase 3 (p. ej. users.display_name). Aplicando migrate_phase3.sql…')
@@ -42,6 +60,16 @@ export default defineNitroPlugin(async () => {
         await applyPhase3MigrationFiles(sqlMigrate)
         if (await verifyPhase3Schema(sqlCheck)) {
           console.info('[postly] Esquema Fase 3 aplicado al arranque.')
+          if (!(await verifyPhase4Schema(sqlCheck))) {
+            try {
+              await applyPhase4MigrationFiles(sqlMigrate)
+              if (await verifyPhase4Schema(sqlCheck)) {
+                console.info('[postly] Esquema Fase 4 aplicado al arranque.')
+              }
+            } catch (e) {
+              console.error('[postly] Error al aplicar Fase 4 tras Fase 3:', e)
+            }
+          }
           return
         }
       } catch (e) {
@@ -110,12 +138,29 @@ export default defineNitroPlugin(async () => {
         console.error('[postly] Error al aplicar Fase 3 tras migración:', e)
       }
     }
+    if (
+      ok &&
+      (await verifyPhase2Schema(sqlCheck)) &&
+      (await verifyPhase3Schema(sqlCheck)) &&
+      !(await verifyPhase4Schema(sqlCheck))
+    ) {
+      try {
+        await applyPhase4MigrationFiles(sqlMigrate)
+      } catch (e) {
+        console.error('[postly] Error al aplicar Fase 4 tras migración:', e)
+      }
+    }
 
     const phase2Ok = ok && (await verifyPhase2Schema(sqlCheck))
     const phase3Ok = ok && phase2Ok && (await verifyPhase3Schema(sqlCheck))
+    const phase4Ok = ok && phase2Ok && phase3Ok && (await verifyPhase4Schema(sqlCheck))
 
-    if (ok && phase2Ok && phase3Ok) {
-      console.info('[postly] Esquema verificado correctamente (Fase 1 + 2 + 3).')
+    if (ok && phase2Ok && phase3Ok && phase4Ok) {
+      console.info('[postly] Esquema verificado correctamente (Fase 1 + 2 + 3 + 4).')
+    } else if (ok && phase2Ok && phase3Ok && !phase4Ok) {
+      console.error(
+        '[postly] Falta columna tasks.description (Fase 4). Ejecuta: npm run db:migrate-phase4 o database/migrate_phase4.sql en Neon.'
+      )
     } else if (ok && phase2Ok && !phase3Ok) {
       console.error(
         '[postly] Faltan columnas Fase 3. Ejecuta: npm run db:migrate-phase3 o database/migrate_phase3.sql en Neon.'

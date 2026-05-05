@@ -103,7 +103,6 @@
           @task-create="handleTaskCreate"
           @task-delete="handleTaskDelete"
           @task-open-detail="handleTaskOpenDetail"
-          @task-update="handleTaskUpdate"
           @task-move="handleTaskMove"
           @task-reorder="handleTaskReorder"
           @update-title="handleColumnUpdate"
@@ -180,10 +179,70 @@
       <div class="board__add-column-form board__modal--task-detail" @click.stop>
         <div v-if="taskDetailLoading" class="board__modal-empty">Cargando…</div>
         <template v-else-if="taskDetail">
-          <h3 class="board__form-title board__task-detail-title">{{ taskDetail.task.title }}</h3>
-          <p class="board__task-detail-meta">
+          <p class="board__task-detail-meta board__task-detail-meta--first">
             Creada: {{ formatLocaleDateTime(taskDetail.task.created_at) }}
           </p>
+
+          <section class="board__task-detail-section">
+            <h4 class="board__task-detail-heading">Título y color</h4>
+            <label class="board__sr-only" for="task-detail-title-input">Título de la tarea</label>
+            <input
+              id="task-detail-title-input"
+              v-model="taskEditTitle"
+              class="board__column-input board__task-detail-title-field"
+              type="text"
+              maxlength="200"
+              autocomplete="off"
+            />
+            <p
+              v-if="taskEditTitle.length > 0 && taskEditTitle.trim().length < 3"
+              class="board__form-error board__task-detail-field-error"
+            >
+              El título debe tener al menos 3 caracteres
+            </p>
+            <div class="board__task-detail-color-row" role="group" aria-label="Color de la tarjeta">
+              <button
+                v-for="c in POSTIT_COLOR_OPTIONS"
+                :key="c.value"
+                type="button"
+                class="board__task-detail-color-swatch"
+                :class="{ 'board__task-detail-color-swatch--active': taskEditColor === c.value }"
+                :style="{ backgroundColor: c.bg }"
+                :title="c.label"
+                :aria-label="`Color ${c.label}`"
+                @click="taskEditColor = c.value"
+              />
+              <button
+                type="button"
+                class="board__task-detail-color-swatch board__task-detail-color-swatch--clear"
+                :class="{ 'board__task-detail-color-swatch--active': taskEditColor === null }"
+                title="Sin color"
+                aria-label="Sin color"
+                @click="taskEditColor = null"
+              >
+                ×
+              </button>
+            </div>
+          </section>
+
+          <section class="board__task-detail-section">
+            <h4 class="board__task-detail-heading">Descripción</h4>
+            <p class="board__task-detail-hint">
+              Texto opcional con formato Markdown (negritas, listas, enlaces). Sin adjuntos.
+            </p>
+            <TaskDescriptionEditor v-model="taskEditDescription" />
+          </section>
+
+          <section class="board__task-detail-section board__task-detail-section--save">
+            <button
+              type="button"
+              class="board__form-button board__form-button--primary"
+              :disabled="!taskMetaDirty || taskEditTitle.trim().length < 3"
+              @click="saveTaskDetailMeta"
+            >
+              Guardar cambios
+            </button>
+          </section>
 
           <section class="board__task-detail-section">
             <h4 class="board__task-detail-heading">Responsables</h4>
@@ -324,6 +383,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import Column from './Column.vue'
 import Glossary from './Glossary.vue'
+import TaskDescriptionEditor from './TaskDescriptionEditor.vue'
 import { useBoard } from '~/composables/useBoard'
 import { useColumns } from '~/composables/useColumns'
 import { useTasks } from '~/composables/useTasks'
@@ -332,6 +392,7 @@ import { useAuth } from '~/composables/useAuth'
 import { apiFetch } from '~/composables/useApi'
 import { userLabel } from '~/utils/userLabel'
 import { formatLocaleDateTime } from '~/utils/formatDate'
+import { POSTIT_COLOR_OPTIONS } from '~/utils/postitColors'
 import type {
   Column as ColumnType,
   Task,
@@ -372,6 +433,36 @@ const selectedAssigneeUserId = ref('')
 const currentUserId = ref<string | null>(null)
 
 const taskDetailError = computed(() => taskDetailErrorRef.value)
+
+const taskEditTitle = ref('')
+const taskEditColor = ref<string | null>(null)
+const taskEditDescription = ref('')
+
+function normalizeTaskDescription(s: string | null | undefined): string {
+  return (s ?? '').trim()
+}
+
+watch(
+  () => taskDetail.value?.task,
+  (t) => {
+    if (!t) return
+    taskEditTitle.value = t.title
+    taskEditColor.value = t.color
+    taskEditDescription.value = t.description ?? ''
+  },
+  { immediate: true }
+)
+
+const taskMetaDirty = computed(() => {
+  const d = taskDetail.value
+  if (!d?.task) return false
+  const t = d.task
+  return (
+    taskEditTitle.value.trim() !== t.title ||
+    taskEditColor.value !== t.color ||
+    normalizeTaskDescription(taskEditDescription.value) !== normalizeTaskDescription(t.description ?? '')
+  )
+})
 
 const assigneePickerOptions = computed(() => {
   if (!members.value.length || !taskDetail.value) return []
@@ -695,20 +786,44 @@ async function handleTaskCreate(columnId: string, title: string, color: string |
   }
 }
 
-async function handleTaskUpdate(taskId: string, updates: { title?: string; color?: string | null }) {
+async function handleTaskUpdate(
+  taskId: string,
+  updates: { title?: string; color?: string | null; description?: string | null }
+) {
   try {
-    // Actualizar localmente primero para reactividad inmediata
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = tasks.value.find((t) => t.id === taskId)
     if (task) {
       if (updates.title !== undefined) task.title = updates.title
       if (updates.color !== undefined) task.color = updates.color
+      if (updates.description !== undefined) task.description = updates.description
     }
-    // Actualizar en BD
     await updateTask(taskId, updates)
-    // No recargar para mantener la reactividad local
   } catch (err) {
     alert('Error al actualizar la tarea. Por favor, intenta nuevamente.')
     await loadTasks({ silent: true })
+    throw err
+  }
+}
+
+async function saveTaskDetailMeta() {
+  const tid = taskDetailId.value
+  if (!tid || !taskDetail.value) return
+  const title = taskEditTitle.value.trim()
+  if (title.length < 3) {
+    alert('El título debe tener al menos 3 caracteres.')
+    return
+  }
+  try {
+    const descriptionNorm = normalizeTaskDescription(taskEditDescription.value)
+    await handleTaskUpdate(tid, {
+      title,
+      color: taskEditColor.value,
+      description: descriptionNorm.length ? descriptionNorm : null
+    })
+    await loadDetail(tid)
+    await loadTasks({ silent: true })
+  } catch {
+    // handleTaskUpdate ya mostró error y sincronizó
   }
 }
 
@@ -994,14 +1109,79 @@ function handleLogout() {
   width: 100%;
 }
 
-.board__task-detail-title {
+.board__task-detail-title-field {
+  width: 100%;
+  box-sizing: border-box;
   margin-bottom: var(--spacing-xs);
+}
+
+.board__task-detail-field-error {
+  margin-top: 0;
+  margin-bottom: var(--spacing-sm);
+}
+
+.board__task-detail-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+  align-items: center;
+}
+
+.board__task-detail-color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.board__task-detail-color-swatch:hover {
+  transform: scale(1.08);
+}
+
+.board__task-detail-color-swatch--active {
+  border-color: var(--brand-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.board__task-detail-color-swatch--clear {
+  background: rgba(255, 255, 255, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: bold;
+  color: var(--text-secondary);
 }
 
 .board__task-detail-meta {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   margin: 0 0 var(--spacing-md);
+}
+
+.board__task-detail-meta--first {
+  margin-top: 0;
+}
+
+.board__task-detail-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin: 0 0 var(--spacing-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.board__task-detail-section--save {
+  margin-top: calc(-1 * var(--spacing-sm));
+  margin-bottom: var(--spacing-lg);
 }
 
 .board__task-detail-section {

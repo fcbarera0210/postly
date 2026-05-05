@@ -15,7 +15,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Tarea no encontrada' })
   }
 
-  const body = await readBody<{ title?: string; color?: string | null }>(event)
-  await dbUpdateTask(taskId, body.title, body.color)
+  const body = await readBody<{ title?: string; color?: string | null; description?: string | null }>(
+    event
+  )
+  await dbUpdateTask(taskId, {
+    title: body.title,
+    color: body.color,
+    description: body.description
+  })
   return { ok: true }
 })
