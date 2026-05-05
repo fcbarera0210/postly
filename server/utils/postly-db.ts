@@ -389,50 +389,6 @@ export async function dbReorderTasks(updates: Array<{ id: string; order: number 
   }
 }
 
-// Glossary
-export async function dbGetGlossary(boardId: string) {
-  return query<{ id: string; board_id: string; name: string; color: string; order: number }>(
-    'SELECT * FROM glossary WHERE board_id = $1 ORDER BY "order" ASC',
-    [boardId]
-  )
-}
-
-export async function dbCreateGlossaryItem(
-  id: string,
-  boardId: string,
-  name: string,
-  color: string,
-  order: number
-) {
-  await query('INSERT INTO glossary (id, board_id, name, color, "order") VALUES ($1, $2, $3, $4, $5)', [
-    id,
-    boardId,
-    name,
-    color,
-    order
-  ])
-}
-
-export async function dbUpdateGlossaryItem(id: string, name?: string, color?: string) {
-  if (name !== undefined && color !== undefined) {
-    await query('UPDATE glossary SET name = $1, color = $2 WHERE id = $3', [name, color, id])
-  } else if (name !== undefined) {
-    await query('UPDATE glossary SET name = $1 WHERE id = $2', [name, id])
-  } else if (color !== undefined) {
-    await query('UPDATE glossary SET color = $1 WHERE id = $2', [color, id])
-  }
-}
-
-export async function dbDeleteGlossaryItem(id: string) {
-  await query('DELETE FROM glossary WHERE id = $1', [id])
-}
-
-export async function dbReorderGlossary(updates: Array<{ id: string; order: number }>) {
-  for (const u of updates) {
-    await query('UPDATE glossary SET "order" = $1 WHERE id = $2', [u.order, u.id])
-  }
-}
-
 export async function dbVerifyColumnBelongsToBoard(columnId: string, boardId: string): Promise<boolean> {
   const row = await queryOne<{ n: string }>(
     'SELECT 1 as n FROM columns WHERE id = $1 AND board_id = $2',
@@ -563,12 +519,4 @@ export async function dbInsertTaskAssignee(taskId: string, assigneeUserId: strin
 
 export async function dbDeleteTaskAssignee(taskId: string, assigneeUserId: string): Promise<void> {
   await query('DELETE FROM task_assignees WHERE task_id = $1 AND user_id = $2', [taskId, assigneeUserId])
-}
-
-export async function dbVerifyGlossaryBelongsToBoard(itemId: string, boardId: string): Promise<boolean> {
-  const row = await queryOne<{ n: string }>(
-    'SELECT 1 as n FROM glossary WHERE id = $1 AND board_id = $2',
-    [itemId, boardId]
-  )
-  return !!row
 }

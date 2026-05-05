@@ -2,6 +2,10 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  modules: ['vue-sonner/nuxt'],
+  vueSonner: {
+    css: true
+  },
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL || '',
     jwtSecret:

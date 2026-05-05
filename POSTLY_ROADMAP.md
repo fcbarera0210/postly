@@ -12,7 +12,7 @@ Marca las casillas a medida que avances: `- [ ]` → `- [x]`.
 - [x] `DATABASE_URL` y `NUXT_SESSION_SECRET` solo en servidor (Vercel / `.env` local); sin exposición en `runtimeConfig.public`
 - [x] Cliente sin `@neondatabase/serverless`; todas las mutaciones y lecturas vía `/api/*`
 - [x] Autenticación: login/registro devuelven JWT; cliente guarda token y envía `Authorization: Bearer`
-- [x] Tablas: `users`, `boards`, `board_members` (owner/editor), `board_access_requests`, `columns`, `tasks`, `glossary`
+- [x] Tablas: `users`, `boards`, `board_members` (owner/editor), `board_access_requests`, `columns`, `tasks`
 - [x] Varios tableros por usuario; propiedad vía `board_members.role = owner`
 - [x] Rutas UI: listado `/boards`, vista Kanban `/boards/[id]`
 - [x] Crear tablero; al registro, tablero inicial + columnas por defecto vía API

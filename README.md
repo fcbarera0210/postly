@@ -12,8 +12,7 @@ Postly es una aplicación personal tipo Trello para organizar tareas de forma vi
 
 - 📋 **Tablero visual** - Organiza tus tareas en columnas personalizables
 - 🎨 **Post-its con colores** - Diferencia tareas con colores opcionales
-- 📚 **Glosario de colores** - Crea un glosario personalizado asociando nombres a colores
-- 🖱️ **Crear tareas desde glosario** - Click en elementos del glosario para crear tareas rápidamente
+- 🔍 **Filtro por responsable** - Ver solo tareas de un responsable; la lista incluye a quienes tengan al menos una tarea; el filtro se puede compartir vía `?assignee=` en la URL
 - 🔄 **Drag & Drop** - Mueve tareas entre columnas o reordénalas fácilmente
 - 👤 **Autenticación por email/password** - Sistema de usuarios con registro e inicio de sesión
 - 💾 **Sesión persistente** - Tu sesión se mantiene al recargar la página
@@ -124,7 +123,7 @@ postly/
 │   ├── Board.vue       # Contenedor principal del tablero
 │   ├── Column.vue      # Columna de tareas
 │   ├── TaskCard.vue    # Tarjeta de tarea (post-it)
-│   ├── Glossary.vue    # Glosario de colores
+│   ├── AssigneeFilter.vue # Filtro por responsable en el tablero
 │   ├── LoginGate.vue   # Pantalla de autenticación (login/registro)
 │   └── Footer.vue      # Footer con información de desarrollo
 ├── composables/        # Composables de Vue (lógica reutilizable)
@@ -132,12 +131,11 @@ postly/
 │   ├── useColumns.ts   # Gestión de columnas
 │   ├── useTasks.ts     # Gestión de tareas
 │   ├── useTaskDetail.ts # Detalle, comentarios y responsables (Fase 2)
-│   ├── useGlossary.ts  # Gestión del glosario de colores
 │   ├── useAuth.ts      # Autenticación (JWT vía API)
 │   └── useApi.ts       # $fetch con Authorization
 ├── database/           # Scripts SQL
 │   ├── schema.sql      # Esquema actual (fuente de verdad)
-│   ├── migrate_phase2.sql / migrate_phase3.sql  # Migraciones incrementales
+│   ├── migrate_phase2.sql / migrate_phase3.sql / migrate_drop_glossary.sql  # Migraciones incrementales
 │   └── reset_neon.sql  # Limpia tablas (antes de schema)
 ├── server/             # Nitro: API y Neon
 │   ├── api/
@@ -188,14 +186,10 @@ postly/
 - ✅ Mover tareas entre columnas (drag & drop)
 - ✅ Reordenar tareas dentro de columnas
 
-### Glosario de Colores
-- ✅ Crear elementos del glosario asociando nombres a colores
-- ✅ Editar nombres de elementos (doble clic en desktop, long press en móvil)
-- ✅ Eliminar elementos del glosario
-- ✅ Visualización como badges con círculo de color y nombre
-- ✅ Scroll horizontal en mobile sin mostrar barra de scroll
-- ✅ Persistencia en base de datos
-- ✅ **Crear tareas desde glosario** - Click en un elemento del glosario para crear una tarea en la primera columna con el color y nombre pre-configurados
+### Filtro por responsable
+- ✅ Lista horizontal con icono «todos» y círculos con iniciales por responsable (quienes tienen al menos una tarea)
+- ✅ Al elegir una persona, solo se muestran las tareas donde figura como responsable
+- ✅ Parámetro de URL `assignee` para enlazar o guardar el filtro (`router.replace`, sin llenar el historial)
 
 ### Mejoras UX/UI
 - ✅ Scroll de página completa (no en columnas individuales)
@@ -217,173 +211,6 @@ Postly utiliza un sistema de autenticación por email y contraseña:
 - **Aislamiento de datos**: Cada usuario tiene su propio tablero completamente aislado
 - **Cerrar sesión**: Botón de logout para cambiar de cuenta
 - **Validación**: Email y contraseña con validación de formato
-
-## 🚀 Deploy
-
-### Vercel (Recomendado)
-
-1. Conectar el repositorio a Vercel
-2. Configurar variables de entorno: `DATABASE_URL`, `NUXT_SESSION_SECRET` (secreto aleatorio largo para JWT)
-3. El deploy se realizará automáticamente en cada push
-
-### Otros proveedores
-
-La aplicación es compatible con cualquier proveedor que soporte Nuxt 3:
-- Netlify
-- Cloudflare Pages
-- Railway
-- Render
-
-## 🧪 Desarrollo
-
-### Estructura de datos
-
-```typescript
-// User
-interface User {
-  id: string
-  email: string
-  password_hash: string
-  created_at: number
-}
-
-// Board
-interface Board {
-  id: string
-  name: string
-  user_id: string  // Relación con usuario
-}
-
-// Column
-interface Column {
-  id: string
-  board_id: string
-  title: string
-  order: number
-}
-
-// Task
-interface Task {
-  id: string
-  column_id: string
-  title: string
-  color: string | null
-  order: number
-  created_at: number
-}
-
-// GlossaryItem
-interface GlossaryItem {
-  id: string
-  board_id: string
-  name: string
-  color: string
-  order: number
-}
-```
-
-## 🎨 Mejoras Recientes
-
-### Versión Actual - Persistencia y Productividad
-
-**Nuevas Funcionalidades:**
-- ✅ **Sesión persistente**: La sesión ahora se guarda en `localStorage` en lugar de `sessionStorage`, permitiendo que la sesión persista al recargar la página
-- ✅ **Recordar email**: Checkbox en el formulario de login para guardar el email y pre-llenarlo automáticamente en futuros inicios de sesión
-- ✅ **Crear tareas desde glosario**: Click en cualquier elemento del glosario para crear rápidamente una tarea en la primera columna (izquierda a derecha) con:
-  - Color del glosario pre-seleccionado
-  - Nombre del glosario como título inicial (editable)
-  - Focus automático en el input para escribir inmediatamente
-  - Detección inteligente de doble click para evitar conflictos con la edición
-
-**Mejoras de UX:**
-- ✅ Mejor espaciado en el formulario de login entre campos, checkbox y botón
-- ✅ Experiencia más fluida al crear tareas desde el glosario
-
-### Versión Anterior - Mejoras Mobile y UX
-
-**Mejoras Mobile:**
-- ✅ **Edición con long press**: En dispositivos móviles, mantén presionado cualquier elemento editable (tareas, columnas, tablero, glosario) para entrar en modo edición, evitando el problema del zoom con doble tap
-- ✅ **Glosario horizontal**: En mobile, el glosario se muestra en scroll horizontal sin mostrar la barra de scroll para mejor experiencia
-- ✅ **Footer optimizado**: Footer adaptado para mobile manteniendo todo en una sola línea
-- ✅ **Iconos modernos**: Botones del header convertidos a iconos usando Heroicons (PlusIcon y ArrowRightOnRectangleIcon)
-- ✅ **Header compacto**: Botones de acción alineados horizontalmente con logo y título del tablero
-
-**Mejoras de Accesibilidad:**
-- ✅ Colores del footer adaptativos al tema (claro/oscuro) usando variables CSS
-- ✅ Iconos con aria-labels para mejor accesibilidad
-- ✅ Soporte completo de touch events para dispositivos móviles
-
-**Stack Actualizado:**
-- ✅ **Heroicons** - Librería de iconos gratuita y moderna
-
-### Versión Anterior - Branding y Diseño
-
-**Nueva Identidad Visual:**
-- ✅ Logo de Postly integrado en toda la aplicación
-- ✅ Logo en el header del tablero (izquierda del nombre)
-- ✅ Logo prominente en la página de login
-- ✅ Favicon personalizado con el logo
-- ✅ Meta tags Open Graph configurados para compartir URLs
-- ✅ Sistema de colores de marca alineado con el logo (#FF5A4D)
-- ✅ Variables CSS para colores de marca con estados hover/active
-- ✅ Soporte para modo claro y oscuro con variantes de color optimizadas
-
-**Sistema de Colores:**
-- Color principal de marca: `#FF5A4D` (del logo)
-- Estados interactivos: hover y active con variaciones del color de marca
-- Colores de post-its mantenidos independientes (amarillo, rosa, azul, verde, etc.)
-- Mejor contraste y accesibilidad en ambos modos (claro/oscuro)
-
-### Versión Anterior - Sistema de Usuarios
-
-**Nueva Funcionalidad - Autenticación por Email/Password:**
-- ✅ Sistema completo de registro e inicio de sesión
-- ✅ Autenticación segura con hash de contraseñas (SHA-256 con salt)
-- ✅ Cada usuario tiene su propio tablero completamente aislado
-- ✅ Sesiones válidas por 24 horas
-- ✅ Botón de logout para cerrar sesión
-- ✅ Validación de email y contraseña
-- ✅ Interfaz moderna con toggle entre login/registro
-- ✅ Creación automática de tablero inicial con columnas por defecto al registrarse
-
-**Mejoras UX/UI:**
-- Sistema de scroll mejorado: las columnas crecen dinámicamente y el scroll es de la página completa, evitando conflictos con drag & drop
-- Botones de eliminar simplificados: diseño minimalista con solo la X, sin círculo de fondo
-- Mejoras visuales generales:
-  - Sombras más sutiles y graduales
-  - Mejor contraste y legibilidad
-  - Transiciones suaves con cubic-bezier
-  - Espaciado optimizado para mejor respiración visual
-  - Jerarquía tipográfica mejorada
-  - Estados hover y feedback visual refinados
-
-**Funcionalidad - Glosario de Colores:**
-- Permite crear un glosario personalizado asociando nombres a colores de post-its
-- Visualización como badges con círculo de color y nombre
-- Edición inline con doble clic
-- Persistencia completa en base de datos
-- Integrado entre el título del tablero y las columnas
-
-**Mejoras de Interfaz:**
-- ✅ Footer con información de desarrollo y logo
-- ✅ Diseño responsive del footer
-- ✅ Integración del logo SVG inline para mejor rendimiento
-
-## 🔄 Migración de Base de Datos
-
-Para la versión actual, el esquema está en `database/schema.sql`. Si vienes de un esquema antiguo (PIN o `boards.user_id`), lo más simple es ejecutar `database/reset_neon.sql` y luego `database/schema.sql`, y volver a registrarte. El archivo `database/migration_users.sql` queda solo como referencia histórica.
-
-## 📝 Licencia
-
-Este proyecto es de uso personal. Todos los derechos reservados.
-
-## 🤝 Contribuciones
-
-Este es un proyecto personal, pero las sugerencias y mejoras son bienvenidas a través de Issues.
-
-## 📧 Contacto
-
-Para preguntas o sugerencias, abre un Issue en el repositorio.
 
 ---
 

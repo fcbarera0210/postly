@@ -25,7 +25,6 @@
             {{ creating ? 'Creando…' : 'Crear' }}
           </button>
         </form>
-        <p v-if="createError" class="boards-page__error">{{ createError }}</p>
       </section>
 
       <section class="boards-page__section">
@@ -44,8 +43,6 @@
             {{ joining ? 'Enviando…' : 'Solicitar acceso' }}
           </button>
         </form>
-        <p v-if="joinMessage" class="boards-page__success">{{ joinMessage }}</p>
-        <p v-if="joinError" class="boards-page__error">{{ joinError }}</p>
       </section>
 
       <section class="boards-page__section">
@@ -127,7 +124,6 @@
           placeholder="Cómo te mostramos en el tablero"
           autocomplete="nickname"
         />
-        <p v-if="profileError" class="boards-page__error">{{ profileError }}</p>
         <div class="boards-page__modal-actions">
           <button
             type="button"
@@ -149,31 +145,27 @@ import { ref, computed, onMounted } from 'vue'
 import type { Board, User } from '~/utils/types'
 import { apiFetch } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
+import { usePostlyToast } from '~/composables/usePostlyToast'
 import { userLabel } from '~/utils/userLabel'
-import { getFetchErrorMessage } from '~/utils/fetchError'
-
 definePageMeta({
   middleware: 'auth'
 })
 
 const { logout, getCurrentUser, updateProfile } = useAuth()
+const { showError, success } = usePostlyToast()
 
 const boards = ref<Board[]>([])
 const loading = ref(true)
 const newBoardName = ref('')
 const creating = ref(false)
-const createError = ref('')
 const joinBoardId = ref('')
 const joining = ref(false)
-const joinError = ref('')
-const joinMessage = ref('')
 
 const currentUser = ref<User | null>(null)
 const profileOpen = ref(false)
 const profileDraft = ref('')
 const profileEmail = ref('')
 const profileSaving = ref(false)
-const profileError = ref('')
 const copiedBoardId = ref<string | null>(null)
 const copyAnnounce = ref('')
 let copyTimer: ReturnType<typeof setTimeout> | null = null
@@ -192,6 +184,9 @@ async function loadBoards() {
   loading.value = true
   try {
     boards.value = await apiFetch<Board[]>('/api/boards')
+  } catch (e: unknown) {
+    showError(e, 'No se pudieron cargar los tableros.')
+    boards.value = []
   } finally {
     loading.value = false
   }
@@ -207,7 +202,6 @@ onMounted(async () => {
 })
 
 function openProfile() {
-  profileError.value = ''
   profileEmail.value = currentUser.value?.email ?? ''
   profileDraft.value = currentUser.value?.display_name ?? ''
   profileOpen.value = true
@@ -219,14 +213,14 @@ function closeProfile() {
 
 async function saveProfile() {
   profileSaving.value = true
-  profileError.value = ''
   try {
     const trimmed = profileDraft.value.trim()
     const nextUser = await updateProfile(trimmed.length ? trimmed : null)
     currentUser.value = nextUser
+    success('Perfil guardado')
     closeProfile()
   } catch (e: unknown) {
-    profileError.value = getFetchErrorMessage(e, 'No se pudo guardar el perfil')
+    showError(e, 'No se pudo guardar el perfil.')
   } finally {
     profileSaving.value = false
   }
@@ -235,7 +229,6 @@ async function saveProfile() {
 async function handleCreate() {
   const name = newBoardName.value.trim()
   if (!name) return
-  createError.value = ''
   creating.value = true
   try {
     await apiFetch('/api/boards', {
@@ -247,8 +240,9 @@ async function handleCreate() {
     })
     newBoardName.value = ''
     await loadBoards()
+    success('Tablero creado')
   } catch (e: unknown) {
-    createError.value = getFetchErrorMessage(e, 'No se pudo crear el tablero')
+    showError(e, 'No se pudo crear el tablero.')
   } finally {
     creating.value = false
   }
@@ -257,18 +251,16 @@ async function handleCreate() {
 async function handleJoin() {
   const boardId = joinBoardId.value.trim()
   if (!boardId) return
-  joinError.value = ''
-  joinMessage.value = ''
   joining.value = true
   try {
     await apiFetch('/api/boards/join', {
       method: 'POST',
       body: { boardId }
     })
-    joinMessage.value = 'Solicitud enviada. El dueño debe aprobarla desde el tablero.'
     joinBoardId.value = ''
+    success('Solicitud enviada. El dueño debe aprobarla desde el tablero.')
   } catch (e: unknown) {
-    joinError.value = getFetchErrorMessage(e, 'No se pudo enviar la solicitud')
+    showError(e, 'No se pudo enviar la solicitud.')
   } finally {
     joining.value = false
   }
@@ -276,15 +268,21 @@ async function handleJoin() {
 
 function copyId(id: string) {
   if (import.meta.client && navigator.clipboard) {
-    navigator.clipboard.writeText(id).then(() => {
-      copiedBoardId.value = id
-      copyAnnounce.value = 'ID copiado al portapapeles'
-      if (copyTimer) clearTimeout(copyTimer)
-      copyTimer = setTimeout(() => {
-        copiedBoardId.value = null
-        copyAnnounce.value = ''
-      }, 2500)
-    }).catch(() => {})
+    navigator.clipboard
+      .writeText(id)
+      .then(() => {
+        success('ID del tablero copiado')
+        copiedBoardId.value = id
+        copyAnnounce.value = 'ID copiado al portapapeles'
+        if (copyTimer) clearTimeout(copyTimer)
+        copyTimer = setTimeout(() => {
+          copiedBoardId.value = null
+          copyAnnounce.value = ''
+        }, 2500)
+      })
+      .catch(() => {
+        showError('No se pudo copiar al portapapeles.')
+      })
   }
 }
 

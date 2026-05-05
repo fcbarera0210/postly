@@ -27,8 +27,6 @@
       </div>
 
       <form @submit.prevent="handleSubmit" class="login-gate__form">
-        <div v-if="error" class="login-gate__error">{{ error }}</div>
-        
         <div class="login-gate__input-group">
           <label for="email" class="login-gate__label">Correo electrónico</label>
           <input
@@ -39,7 +37,6 @@
             placeholder="tu@email.com"
             autocomplete="email"
             :disabled="loading"
-            @input="clearError"
             required
           />
         </div>
@@ -54,7 +51,6 @@
             placeholder="••••••••"
             autocomplete="current-password"
             :disabled="loading"
-            @input="clearError"
             required
           />
           <p v-if="isRegisterMode" class="login-gate__hint">
@@ -72,7 +68,6 @@
             placeholder="••••••••"
             autocomplete="new-password"
             :disabled="loading"
-            @input="clearError"
             required
           />
         </div>
@@ -105,8 +100,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { apiFetch } from '~/composables/useApi'
+import { usePostlyToast } from '~/composables/usePostlyToast'
 
 const SAVED_EMAIL_KEY = 'postly_saved_email'
+const { showError, success, warning } = usePostlyToast()
 
 const emit = defineEmits<{
   authenticated: []
@@ -119,7 +116,6 @@ const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const loading = ref(false)
-const error = ref('')
 const rememberEmail = ref(false)
 
 const isFormValid = computed(() => {
@@ -131,10 +127,6 @@ const isFormValid = computed(() => {
   }
   return true
 })
-
-function clearError() {
-  error.value = ''
-}
 
 // Cargar email guardado al montar el componente
 onMounted(() => {
@@ -150,15 +142,14 @@ onMounted(() => {
 async function handleSubmit() {
   if (!isFormValid.value) {
     if (isRegisterMode.value && password.value !== confirmPassword.value) {
-      error.value = 'Las contraseñas no coinciden'
+      warning('Las contraseñas no coinciden.')
     } else if (isRegisterMode.value && password.value.length < 6) {
-      error.value = 'La contraseña debe tener al menos 6 caracteres'
+      warning('La contraseña debe tener al menos 6 caracteres.')
     }
     return
   }
 
   loading.value = true
-  error.value = ''
 
   try {
     if (isRegisterMode.value) {
@@ -170,22 +161,20 @@ async function handleSubmit() {
           initialColumnTitles: ['Por hacer', 'En progreso', 'Hecho']
         }
       })
+      success('Cuenta creada. Ya puedes usar Postly.')
       emit('authenticated')
     } else {
-      // Login
       await login(email.value, password.value)
-      
-      // Guardar email si el checkbox está marcado
       if (rememberEmail.value) {
         localStorage.setItem(SAVED_EMAIL_KEY, email.value)
       } else {
         localStorage.removeItem(SAVED_EMAIL_KEY)
       }
-      
+      success('Sesión iniciada')
       emit('authenticated')
     }
-  } catch (err: any) {
-    error.value = err.message || 'Error al autenticar. Intenta nuevamente.'
+  } catch (err: unknown) {
+    showError(err, 'No se pudo completar el inicio de sesión.')
   } finally {
     loading.value = false
   }

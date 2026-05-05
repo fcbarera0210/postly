@@ -116,8 +116,11 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
+import { usePostlyToast } from '~/composables/usePostlyToast'
 import { prefixCurrentLine, wrapSelection } from '~/utils/markdownInsert'
 import { renderMarkdownToSafeHtml } from '~/utils/renderMarkdown'
+
+const { warning, showError, success } = usePostlyToast()
 
 const props = defineProps<{
   modelValue: string
@@ -206,7 +209,7 @@ async function copySelectionAsLink() {
   const end = ta.selectionEnd
   const selected = v.slice(start, end).trim()
   if (!selected) {
-    window.alert('Selecciona el texto que será el enlace.')
+    warning('Selecciona el texto que será el enlace.')
     return
   }
   const url = window.prompt('URL a incluir en el Markdown copiado')
@@ -214,8 +217,9 @@ async function copySelectionAsLink() {
   const md = `[${selected}](${url.trim()})`
   try {
     await navigator.clipboard.writeText(md)
+    success('Markdown copiado')
   } catch {
-    window.alert('No se pudo copiar al portapapeles.')
+    showError('No se pudo copiar al portapapeles.')
   }
 }
 </script>

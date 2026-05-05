@@ -76,17 +76,7 @@ CREATE TABLE IF NOT EXISTS task_assignees (
 
 CREATE INDEX IF NOT EXISTS idx_task_assignees_user_id ON task_assignees(user_id);
 
-CREATE TABLE IF NOT EXISTS glossary (
-  id TEXT PRIMARY KEY,
-  board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  color TEXT NOT NULL,
-  "order" INTEGER NOT NULL
-);
-
 CREATE INDEX IF NOT EXISTS idx_columns_board_id ON columns(board_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_column_id ON tasks(column_id);
 CREATE INDEX IF NOT EXISTS idx_columns_order ON columns(board_id, "order");
 CREATE INDEX IF NOT EXISTS idx_tasks_order ON tasks(column_id, "order");
-CREATE INDEX IF NOT EXISTS idx_glossary_board_id ON glossary(board_id);
-CREATE INDEX IF NOT EXISTS idx_glossary_order ON glossary(board_id, "order");

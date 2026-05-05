@@ -1,6 +1,7 @@
 <template>
   <div id="app">
     <NuxtRouteAnnouncer />
+    <Toaster theme="system" position="top-center" :duration="4000" rich-colors :close-button="true" />
     <div class="app__content">
       <NuxtPage />
     </div>

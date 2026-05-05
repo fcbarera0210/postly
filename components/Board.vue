@@ -82,10 +82,11 @@
       </div>
     </div>
 
-    <Glossary
+    <AssigneeFilter
       v-if="props.boardId"
-      :board-id="props.boardId"
-      @create-task="handleCreateTaskFromGlossary"
+      :options="assigneesOnBoard"
+      :model-value="assigneeQueryId"
+      @update:model-value="setAssigneeQuery"
     />
 
     <div class="board__columns-wrapper">
@@ -99,14 +100,13 @@
           :column="column"
           :tasks="tasksByColumn[column.id] || []"
           :can-delete="columnsCanDelete"
-          :add-task-trigger="columnAddTriggers[column.id] || null"
-          @task-create="handleTaskCreate"
-          @task-delete="handleTaskDelete"
+          @open-create-task="openCreateTaskDetail"
+          @task-delete="openDeleteTaskConfirm"
           @task-open-detail="handleTaskOpenDetail"
           @task-move="handleTaskMove"
           @task-reorder="handleTaskReorder"
           @update-title="handleColumnUpdate"
-          @delete="() => handleColumnDelete(column.id)"
+          @delete="() => openDeleteColumnConfirm(column.id)"
         />
       </div>
       <div v-else class="board__empty">
@@ -172,125 +172,298 @@
     </div>
 
     <div
-      v-if="showTaskDetailModal && taskDetailId"
+      v-if="showTaskDetailModal && (taskDetailId || taskDetailCreateColumnId)"
       class="board__add-column-modal"
       @click.self="closeTaskDetail"
     >
       <div class="board__add-column-form board__modal--task-detail" @click.stop>
-        <div v-if="taskDetailLoading" class="board__modal-empty">Cargando…</div>
-        <template v-else-if="taskDetail">
-          <p class="board__task-detail-meta board__task-detail-meta--first">
-            Creada: {{ formatLocaleDateTime(taskDetail.task.created_at) }}
-          </p>
-
-          <section class="board__task-detail-section">
-            <h4 class="board__task-detail-heading">Título y color</h4>
-            <label class="board__sr-only" for="task-detail-title-input">Título de la tarea</label>
-            <input
-              id="task-detail-title-input"
-              v-model="taskEditTitle"
-              class="board__column-input board__task-detail-title-field"
-              type="text"
-              maxlength="200"
-              autocomplete="off"
-            />
-            <p
-              v-if="taskEditTitle.length > 0 && taskEditTitle.trim().length < 3"
-              class="board__form-error board__task-detail-field-error"
-            >
-              El título debe tener al menos 3 caracteres
-            </p>
-            <div class="board__task-detail-color-row" role="group" aria-label="Color de la tarjeta">
-              <button
-                v-for="c in POSTIT_COLOR_OPTIONS"
-                :key="c.value"
-                type="button"
-                class="board__task-detail-color-swatch"
-                :class="{ 'board__task-detail-color-swatch--active': taskEditColor === c.value }"
-                :style="{ backgroundColor: c.bg }"
-                :title="c.label"
-                :aria-label="`Color ${c.label}`"
-                @click="taskEditColor = c.value"
-              />
-              <button
-                type="button"
-                class="board__task-detail-color-swatch board__task-detail-color-swatch--clear"
-                :class="{ 'board__task-detail-color-swatch--active': taskEditColor === null }"
-                title="Sin color"
-                aria-label="Sin color"
-                @click="taskEditColor = null"
-              >
-                ×
-              </button>
-            </div>
-          </section>
-
-          <section class="board__task-detail-section">
-            <h4 class="board__task-detail-heading">Descripción</h4>
-            <p class="board__task-detail-hint">
-              Texto opcional con formato Markdown (negritas, listas, enlaces). Sin adjuntos.
-            </p>
-            <TaskDescriptionEditor v-model="taskEditDescription" />
-          </section>
-
-          <section class="board__task-detail-section board__task-detail-section--save">
-            <button
-              type="button"
-              class="board__form-button board__form-button--primary"
-              :disabled="!taskMetaDirty || taskEditTitle.trim().length < 3"
-              @click="saveTaskDetailMeta"
-            >
-              Guardar cambios
-            </button>
-          </section>
-
-          <section class="board__task-detail-section">
-            <h4 class="board__task-detail-heading">Responsables</h4>
-            <div class="board__assignee-chips">
-              <span
-                v-for="a in taskDetail.assignees"
-                :key="a.user_id"
-                class="board__assignee-chip"
-              >
-                {{ userLabel(a) }}
+        <div v-if="taskDetailLoading && taskDetailId && !taskDetailCreateColumnId" class="board__task-detail-modal-body">
+          <div class="board__task-detail-topbar">
+            <p class="board__task-detail-meta board__task-detail-meta--topbar">Cargando…</p>
+            <button type="button" class="board__task-detail-close-btn" @click="closeTaskDetail">Cerrar</button>
+          </div>
+        </div>
+        <template v-else-if="taskDetailCreateColumnId">
+          <div class="board__task-detail-modal-body">
+            <div class="board__task-detail-topbar">
+              <p class="board__task-detail-meta board__task-detail-meta--topbar">Nueva tarea</p>
+              <div class="board__task-detail-topbar-actions">
                 <button
                   type="button"
-                  class="board__assignee-chip-remove"
-                  title="Quitar responsable"
-                  aria-label="Quitar responsable"
-                  @click="handleRemoveAssignee(a.user_id)"
+                  class="board__task-detail-close-btn"
+                  :disabled="taskDetailSaveDisabled"
+                  @click="saveTaskDetailMeta"
+                >
+                  Guardar cambios
+                </button>
+                <button
+                  type="button"
+                  class="board__task-detail-edit-btn"
+                  @click="cancelTaskDetailMetaEdit"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+
+            <section class="board__task-detail-section board__task-detail-section--title-block">
+              <label class="board__sr-only" for="task-detail-new-title-input">Título de la tarea</label>
+              <input
+                id="task-detail-new-title-input"
+                v-model="taskEditTitle"
+                class="board__column-input board__task-detail-title-field"
+                type="text"
+                maxlength="200"
+                autocomplete="off"
+                placeholder="Título (mín. 3 caracteres)"
+              />
+              <p
+                v-if="taskEditTitle.length > 0 && taskEditTitle.trim().length < 3"
+                class="board__form-error board__task-detail-field-error"
+              >
+                El título debe tener al menos 3 caracteres
+              </p>
+              <div class="board__task-detail-color-row" role="group" aria-label="Color de la tarjeta">
+                <button
+                  v-for="c in POSTIT_COLOR_OPTIONS"
+                  :key="c.value"
+                  type="button"
+                  class="board__task-detail-color-swatch"
+                  :class="{ 'board__task-detail-color-swatch--active': taskEditColor === c.value }"
+                  :style="{ backgroundColor: c.bg }"
+                  :title="c.label"
+                  :aria-label="`Color ${c.label}`"
+                  @click="taskEditColor = c.value"
+                />
+                <button
+                  type="button"
+                  class="board__task-detail-color-swatch board__task-detail-color-swatch--clear"
+                  :class="{ 'board__task-detail-color-swatch--active': taskEditColor === null }"
+                  title="Sin color"
+                  aria-label="Sin color"
+                  @click="taskEditColor = null"
                 >
                   ×
                 </button>
-              </span>
-              <span v-if="!taskDetail.assignees.length" class="board__modal-empty board__inline-empty">
-                Sin responsables
-              </span>
+              </div>
+            </section>
+
+            <section class="board__task-detail-section">
+              <h4 class="board__task-detail-heading">Descripción</h4>
+              <p class="board__task-detail-hint">
+                Texto opcional con formato Markdown (negritas, listas, enlaces). Sin adjuntos.
+              </p>
+              <TaskDescriptionEditor v-model="taskEditDescription" />
+            </section>
+          </div>
+        </template>
+        <template v-else-if="taskDetail">
+          <div class="board__task-detail-modal-body">
+            <div class="board__task-detail-topbar">
+              <p class="board__task-detail-meta board__task-detail-meta--topbar">
+                Creada: {{ formatDateDMYShortWithTime(taskDetail.task.created_at) }}
+              </p>
+              <div class="board__task-detail-topbar-actions">
+                <template v-if="!taskDetailMetaEditing">
+                  <button
+                    type="button"
+                    class="board__task-detail-edit-btn"
+                    aria-label="Editar título, color y descripción"
+                    @click="enterTaskDetailMetaEdit"
+                  >
+                    <PencilSquareIcon class="board__icon-svg board__task-detail-edit-icon" aria-hidden="true" />
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    class="board__task-detail-delete-btn"
+                    aria-label="Eliminar tarea"
+                    title="Eliminar tarea"
+                    @click="openDeleteTaskConfirm(taskDetail.task.id)"
+                  >
+                    <TrashIcon class="board__icon-svg board__task-detail-delete-icon" aria-hidden="true" />
+                  </button>
+                  <button type="button" class="board__task-detail-close-btn" @click="closeTaskDetail">Cerrar</button>
+                </template>
+                <template v-else>
+                  <button
+                    type="button"
+                    class="board__task-detail-close-btn"
+                    :disabled="taskDetailSaveDisabled"
+                    @click="saveTaskDetailMeta"
+                  >
+                    Guardar cambios
+                  </button>
+                  <button
+                    type="button"
+                    class="board__task-detail-edit-btn"
+                    @click="cancelTaskDetailMetaEdit"
+                  >
+                    Cancelar
+                  </button>
+                </template>
+              </div>
             </div>
-            <div v-if="assigneePickerOptions.length" class="board__assignee-add">
-              <label class="board__sr-only" for="task-assignee-select">Añadir responsable</label>
-              <select
-                id="task-assignee-select"
-                v-model="selectedAssigneeUserId"
-                class="board__task-detail-select"
-              >
-                <option value="">Añadir miembro…</option>
-                <option v-for="m in assigneePickerOptions" :key="m.user_id" :value="m.user_id">
-                  {{ userLabel(m) }} ({{ m.role === 'owner' ? 'Dueño' : 'Editor' }})
-                </option>
-              </select>
-              <button
-                type="button"
-                class="board__form-button board__form-button--primary board__form-button--narrow"
-                :disabled="!selectedAssigneeUserId"
-                @click="handleAddAssignee"
-              >
-                Añadir
-              </button>
-            </div>
-          </section>
+
+            <section class="board__task-detail-section board__task-detail-section--title-block">
+              <template v-if="!taskDetailMetaEditing">
+                <div class="board__task-detail-title-readonly-row">
+                  <span
+                    class="board__task-detail-readonly-swatch"
+                    :style="{ background: postitBackgroundCss(taskDetail.task.color) }"
+                    aria-hidden="true"
+                  />
+                  <p class="board__task-detail-readonly-title">{{ taskDetail.task.title }}</p>
+                </div>
+              </template>
+              <template v-else>
+                <label class="board__sr-only" for="task-detail-title-input">Título de la tarea</label>
+                <input
+                  id="task-detail-title-input"
+                  v-model="taskEditTitle"
+                  class="board__column-input board__task-detail-title-field"
+                  type="text"
+                  maxlength="200"
+                  autocomplete="off"
+                />
+                <p
+                  v-if="taskEditTitle.length > 0 && taskEditTitle.trim().length < 3"
+                  class="board__form-error board__task-detail-field-error"
+                >
+                  El título debe tener al menos 3 caracteres
+                </p>
+              </template>
+
+              <div class="board__task-detail-assignees-toolbar" role="group" aria-label="Responsables de la tarea">
+                <span class="board__task-detail-assignees-label">Responsable:</span>
+                <div class="board__task-detail-assignee-strip">
+                  <template v-if="!taskDetailMetaEditing">
+                    <span
+                      v-if="!taskDetail.assignees.length"
+                      class="board__task-detail-assignee-chip-pad board__task-detail-assignee-chip-pad--active"
+                    >
+                      <span
+                        class="board__task-detail-assignee-none-inner"
+                        role="img"
+                        aria-label="Sin responsables asignados"
+                      >
+                        <UserIcon class="board__task-detail-assignee-user-icon" aria-hidden="true" />
+                      </span>
+                    </span>
+                    <span
+                      v-for="a in taskDetail.assignees"
+                      :key="a.user_id"
+                      class="board__task-detail-assignee-chip-pad"
+                    >
+                      <span
+                        class="board__task-detail-assignee-avatar-inner"
+                        :style="{ backgroundColor: taskDetailAssigneeAvatarBg(a.user_id) }"
+                        :title="userLabel(a)"
+                      >
+                        {{ userInitials(a) }}
+                      </span>
+                    </span>
+                  </template>
+                  <template v-else>
+                    <span
+                      v-if="!taskEditAssigneeIds.length"
+                      class="board__task-detail-assignee-chip-pad board__task-detail-assignee-chip-pad--active"
+                    >
+                      <span
+                        class="board__task-detail-assignee-none-inner"
+                        role="img"
+                        aria-label="Sin responsables asignados"
+                      >
+                        <UserIcon class="board__task-detail-assignee-user-icon" aria-hidden="true" />
+                      </span>
+                    </span>
+                    <span
+                      v-for="uid in taskEditAssigneeIds"
+                      :key="uid"
+                      class="board__task-detail-assignee-chip-pad board__task-detail-assignee-chip-pad--with-remove"
+                    >
+                      <span
+                        v-if="taskDetailPersonForUserId(uid)"
+                        class="board__task-detail-assignee-avatar-inner"
+                        :style="{ backgroundColor: taskDetailAssigneeAvatarBg(uid) }"
+                        :title="userLabel(taskDetailPersonForUserId(uid)!)"
+                      >
+                        {{ userInitials(taskDetailPersonForUserId(uid)!) }}
+                      </span>
+                      <button
+                        type="button"
+                        class="board__task-detail-assignee-remove"
+                        title="Quitar responsable"
+                        :aria-label="`Quitar a ${taskDetailPersonForUserId(uid) ? userLabel(taskDetailPersonForUserId(uid)!) : uid}`"
+                        @click="removeAssigneeFromEdit(uid)"
+                      >
+                        ×
+                      </button>
+                    </span>
+                    <button
+                      v-for="m in assigneePickerOptionsEditing"
+                      :key="m.user_id"
+                      type="button"
+                      class="board__task-detail-assignee-chip-pad board__task-detail-assignee-picker-btn"
+                      :title="`${userLabel(m)} (${m.role === 'owner' ? 'Dueño' : 'Editor'})`"
+                      :aria-label="`Añadir a ${userLabel(m)}`"
+                      @click="stageAddAssignee(m.user_id)"
+                    >
+                      <span
+                        class="board__task-detail-assignee-avatar-inner board__task-detail-assignee-avatar-inner--picker"
+                        :style="{ backgroundColor: taskDetailAssigneeAvatarBg(m.user_id) }"
+                      >
+                        {{ userInitials(m) }}
+                      </span>
+                    </button>
+                  </template>
+                </div>
+              </div>
+
+              <div v-if="taskDetailMetaEditing" class="board__task-detail-color-row" role="group" aria-label="Color de la tarjeta">
+                <button
+                  v-for="c in POSTIT_COLOR_OPTIONS"
+                  :key="c.value"
+                  type="button"
+                  class="board__task-detail-color-swatch"
+                  :class="{ 'board__task-detail-color-swatch--active': taskEditColor === c.value }"
+                  :style="{ backgroundColor: c.bg }"
+                  :title="c.label"
+                  :aria-label="`Color ${c.label}`"
+                  @click="taskEditColor = c.value"
+                />
+                <button
+                  type="button"
+                  class="board__task-detail-color-swatch board__task-detail-color-swatch--clear"
+                  :class="{ 'board__task-detail-color-swatch--active': taskEditColor === null }"
+                  title="Sin color"
+                  aria-label="Sin color"
+                  @click="taskEditColor = null"
+                >
+                  ×
+                </button>
+              </div>
+            </section>
 
           <section class="board__task-detail-section">
+            <h4 class="board__task-detail-heading">Descripción</h4>
+            <template v-if="!taskDetailMetaEditing">
+              <div
+                v-if="taskDetailDescriptionViewHtml"
+                class="board__task-detail-description-view markdown-body"
+                v-html="taskDetailDescriptionViewHtml"
+              />
+              <p v-else class="board__modal-empty board__inline-empty board__task-detail-desc-empty">Sin descripción</p>
+            </template>
+            <template v-else>
+              <p class="board__task-detail-hint">
+                Texto opcional con formato Markdown (negritas, listas, enlaces). Sin adjuntos.
+              </p>
+              <TaskDescriptionEditor v-model="taskEditDescription" />
+            </template>
+          </section>
+
+          <section v-if="!taskDetailMetaEditing" class="board__task-detail-section">
             <h4 class="board__task-detail-heading">Comentarios</h4>
             <ul class="board__comment-list">
               <li v-for="c in taskDetail.comments" :key="c.id" class="board__comment-item">
@@ -327,13 +500,81 @@
                 :disabled="!newCommentText.trim()"
                 @click="submitComment"
               >
-                Publicar
+                Comentar
               </button>
             </div>
           </section>
+          </div>
         </template>
-        <p v-else-if="taskDetailError" class="board__form-error">{{ taskDetailError }}</p>
-        <button type="button" class="board__form-button" @click="closeTaskDetail">Cerrar</button>
+        <div v-else-if="taskDetailError" class="board__task-detail-modal-body">
+          <div class="board__task-detail-topbar">
+            <p class="board__task-detail-meta board__task-detail-meta--topbar">Detalle de tarea</p>
+            <button type="button" class="board__task-detail-close-btn" @click="closeTaskDetail">Cerrar</button>
+          </div>
+          <p class="board__form-error board__task-detail-error-body">{{ taskDetailError }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="showDeleteColumnModal && pendingDeleteColumn"
+      class="board__add-column-modal"
+      @click.self="cancelDeleteColumn"
+    >
+      <div
+        ref="deleteColumnDialogRef"
+        class="board__add-column-form"
+        tabindex="-1"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-column-modal-title"
+        @click.stop
+        @keydown.escape="cancelDeleteColumn"
+      >
+        <h3 id="delete-column-modal-title" class="board__form-title">¿Eliminar esta columna?</h3>
+        <p class="board__modal-warning-text">
+          Vas a eliminar <strong>«{{ pendingDeleteColumn.title }}»</strong>. Las tareas de esta columna se borrarán de
+          forma permanente y no se pueden recuperar.
+        </p>
+        <p v-if="deleteColumnTaskCount > 0" class="board__modal-warning-meta">
+          Esta columna tiene {{ deleteColumnTaskCount }}
+          {{ deleteColumnTaskCount === 1 ? 'tarea' : 'tareas' }}.
+        </p>
+        <div class="board__form-actions">
+          <button type="button" class="board__form-button board__form-button--danger" @click="confirmDeleteColumn">
+            Eliminar columna
+          </button>
+          <button type="button" class="board__form-button" @click="cancelDeleteColumn">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="showDeleteTaskModal && pendingDeleteTask"
+      class="board__add-column-modal"
+      @click.self="cancelDeleteTask"
+    >
+      <div
+        ref="deleteTaskDialogRef"
+        class="board__add-column-form"
+        tabindex="-1"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-task-modal-title"
+        @click.stop
+        @keydown.escape="cancelDeleteTask"
+      >
+        <h3 id="delete-task-modal-title" class="board__form-title">¿Eliminar esta tarea?</h3>
+        <p class="board__modal-warning-text">
+          Vas a eliminar <strong>«{{ pendingDeleteTask.title }}»</strong>. Se borrará de forma permanente y no se podrá
+          recuperar.
+        </p>
+        <div class="board__form-actions">
+          <button type="button" class="board__form-button board__form-button--danger" @click="confirmDeleteTask">
+            Eliminar tarea
+          </button>
+          <button type="button" class="board__form-button" @click="cancelDeleteTask">Cancelar</button>
+        </div>
       </div>
     </div>
 
@@ -379,10 +620,13 @@ import {
   ArrowRightOnRectangleIcon,
   UserGroupIcon,
   ClipboardDocumentIcon,
-  InboxArrowDownIcon
+  InboxArrowDownIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  UserIcon
 } from '@heroicons/vue/24/outline'
 import Column from './Column.vue'
-import Glossary from './Glossary.vue'
+import AssigneeFilter from './AssigneeFilter.vue'
 import TaskDescriptionEditor from './TaskDescriptionEditor.vue'
 import { useBoard } from '~/composables/useBoard'
 import { useColumns } from '~/composables/useColumns'
@@ -390,13 +634,15 @@ import { useTasks } from '~/composables/useTasks'
 import { useTaskDetail } from '~/composables/useTaskDetail'
 import { useAuth } from '~/composables/useAuth'
 import { apiFetch } from '~/composables/useApi'
-import { userLabel } from '~/utils/userLabel'
-import { formatLocaleDateTime } from '~/utils/formatDate'
-import { POSTIT_COLOR_OPTIONS } from '~/utils/postitColors'
+import { usePostlyToast } from '~/composables/usePostlyToast'
+import { userLabel, userInitials } from '~/utils/userLabel'
+import { formatDateDMYShortWithTime, formatLocaleDateTime } from '~/utils/formatDate'
+import { POSTIT_COLOR_OPTIONS, postitBackgroundCss } from '~/utils/postitColors'
+import { renderMarkdownToSafeHtml } from '~/utils/renderMarkdown'
 import type {
   Column as ColumnType,
   Task,
-  GlossaryItem,
+  TaskAssignee,
   AccessRequestRow,
   AccessRequestResolutionRow,
   BoardMemberRow,
@@ -405,6 +651,9 @@ import type {
 
 const props = defineProps<{ boardId: string }>()
 
+const route = useRoute()
+const router = useRouter()
+
 const boardIdRef = toRef(props, 'boardId')
 const { board, boardRole, updateName } = useBoard(boardIdRef)
 const boardId = computed(() => props.boardId || null)
@@ -412,6 +661,7 @@ const { columns, loading: columnsLoading, canDelete: columnsCanDelete, loadColum
 const loading = computed(() => columnsLoading.value)
 const { tasks, loadTasks, create: createTask, remove: removeTask, update: updateTask, move: moveTask, reorder: reorderTasks } = useTasks(boardId)
 const { logout, getCurrentUser } = useAuth()
+const { showError, success, warning, promiseToast } = usePostlyToast()
 
 const boardIdForDetail = toRef(props, 'boardId')
 const {
@@ -421,15 +671,20 @@ const {
   loadDetail,
   clearDetail,
   addComment,
-  deleteComment,
-  addAssignee,
-  removeAssignee
+  deleteComment
 } = useTaskDetail(boardIdForDetail)
 
 const showTaskDetailModal = ref(false)
+const showDeleteColumnModal = ref(false)
+const pendingDeleteColumn = ref<{ id: string; title: string } | null>(null)
+const deleteColumnDialogRef = ref<HTMLElement | null>(null)
+const showDeleteTaskModal = ref(false)
+const pendingDeleteTask = ref<{ id: string; title: string } | null>(null)
+const deleteTaskDialogRef = ref<HTMLElement | null>(null)
 const taskDetailId = ref<string | null>(null)
+/** Columna destino mientras se crea una tarea nueva desde el modal (sin `taskDetailId` hasta guardar). */
+const taskDetailCreateColumnId = ref<string | null>(null)
 const newCommentText = ref('')
-const selectedAssigneeUserId = ref('')
 const currentUserId = ref<string | null>(null)
 
 const taskDetailError = computed(() => taskDetailErrorRef.value)
@@ -437,9 +692,21 @@ const taskDetailError = computed(() => taskDetailErrorRef.value)
 const taskEditTitle = ref('')
 const taskEditColor = ref<string | null>(null)
 const taskEditDescription = ref('')
+const taskDetailMetaEditing = ref(false)
+/** Responsables locales al editar (se persisten al guardar). */
+const taskEditAssigneeIds = ref<string[]>([])
+/** Copia al entrar en edición para detectar cambios y aplicar diff al guardar. */
+const taskMetaAssigneesBaseline = ref<string[]>([])
 
 function normalizeTaskDescription(s: string | null | undefined): string {
   return (s ?? '').trim()
+}
+
+function sameAssigneeIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const setA = new Set(a)
+  if (setA.size !== a.length) return false
+  return b.every((id) => setA.has(id))
 }
 
 watch(
@@ -454,54 +721,164 @@ watch(
 )
 
 const taskMetaDirty = computed(() => {
+  if (taskDetailCreateColumnId.value) {
+    return (
+      taskEditTitle.value.trim().length > 0 ||
+      taskEditColor.value !== null ||
+      normalizeTaskDescription(taskEditDescription.value).length > 0
+    )
+  }
   const d = taskDetail.value
   if (!d?.task) return false
   const t = d.task
-  return (
+  const metaChanged =
     taskEditTitle.value.trim() !== t.title ||
     taskEditColor.value !== t.color ||
     normalizeTaskDescription(taskEditDescription.value) !== normalizeTaskDescription(t.description ?? '')
-  )
+  const assigneesChanged =
+    taskDetailMetaEditing.value &&
+    !sameAssigneeIdSet(taskEditAssigneeIds.value, taskMetaAssigneesBaseline.value)
+  return metaChanged || assigneesChanged
 })
 
-const assigneePickerOptions = computed(() => {
-  if (!members.value.length || !taskDetail.value) return []
-  const assigned = new Set(taskDetail.value.assignees.map((a) => a.user_id))
-  return members.value.filter((m) => !assigned.has(m.user_id))
+const taskDetailSaveDisabled = computed(() => {
+  if (taskEditTitle.value.trim().length < 3) return true
+  if (taskDetailCreateColumnId.value) return false
+  return !taskMetaDirty.value
 })
+
+const taskDetailDescriptionViewHtml = computed(() => {
+  const raw = taskDetail.value?.task?.description ?? ''
+  return renderMarkdownToSafeHtml(raw)
+})
+
+function taskDetailAssigneeAvatarBg(userId: string): string {
+  let n = 0
+  for (let i = 0; i < userId.length; i++) {
+    n = (n + userId.charCodeAt(i) * (i + 3)) % 360
+  }
+  return `hsl(${n} 42% 38%)`
+}
+
+function taskDetailPersonForUserId(userId: string): { email: string; display_name?: string | null } | null {
+  const a = taskDetail.value?.assignees.find((x) => x.user_id === userId)
+  if (a) return { email: a.email, display_name: a.display_name }
+  const m = members.value.find((x) => x.user_id === userId)
+  if (m) return { email: m.email, display_name: m.display_name }
+  return null
+}
+
+const assigneePickerOptionsEditing = computed(() => {
+  if (!taskDetailMetaEditing.value || !members.value.length) return []
+  const picked = new Set(taskEditAssigneeIds.value)
+  return members.value.filter((m) => !picked.has(m.user_id))
+})
+
+function stageAddAssignee(userId: string) {
+  if (taskEditAssigneeIds.value.includes(userId)) return
+  taskEditAssigneeIds.value = [...taskEditAssigneeIds.value, userId]
+}
+
+function removeAssigneeFromEdit(userId: string) {
+  taskEditAssigneeIds.value = taskEditAssigneeIds.value.filter((id) => id !== userId)
+}
+
+function enterTaskDetailMetaEdit() {
+  const d = taskDetail.value
+  if (d) {
+    const ids = d.assignees.map((a) => a.user_id)
+    taskMetaAssigneesBaseline.value = [...ids]
+    taskEditAssigneeIds.value = [...ids]
+  }
+  taskDetailMetaEditing.value = true
+}
+
+function cancelTaskDetailMetaEdit() {
+  if (taskDetailCreateColumnId.value) {
+    if (taskMetaDirty.value) {
+      const ok = confirm('¿Descartar los cambios sin guardar?')
+      if (!ok) return
+    }
+    closeTaskDetail()
+    return
+  }
+  if (taskMetaDirty.value) {
+    const ok = confirm('¿Descartar los cambios sin guardar?')
+    if (!ok) return
+  }
+  const t = taskDetail.value?.task
+  if (t) {
+    taskEditTitle.value = t.title
+    taskEditColor.value = t.color
+    taskEditDescription.value = t.description ?? ''
+  }
+  const d = taskDetail.value
+  if (d) {
+    const ids = d.assignees.map((a) => a.user_id)
+    taskMetaAssigneesBaseline.value = [...ids]
+    taskEditAssigneeIds.value = [...ids]
+  }
+  taskDetailMetaEditing.value = false
+}
 
 onMounted(async () => {
   const u = await getCurrentUser()
   currentUserId.value = u?.id ?? null
 })
 
-async function handleTaskOpenDetail(taskId: string) {
-  taskDetailId.value = taskId
+async function openCreateTaskDetail(columnId: string) {
+  taskDetailId.value = null
+  taskDetailCreateColumnId.value = columnId
+  clearDetail()
+  taskEditTitle.value = ''
+  taskEditColor.value = null
+  taskEditDescription.value = ''
+  taskDetailMetaEditing.value = false
   showTaskDetailModal.value = true
   newCommentText.value = ''
-  selectedAssigneeUserId.value = ''
+  await refreshMembers()
+}
+
+async function handleTaskOpenDetail(taskId: string) {
+  taskDetailCreateColumnId.value = null
+  taskDetailId.value = taskId
+  showTaskDetailModal.value = true
+  taskDetailMetaEditing.value = false
+  newCommentText.value = ''
   await refreshMembers()
   await loadDetail(taskId)
+  if (taskDetailErrorRef.value) {
+    showError(taskDetailErrorRef.value)
+  }
 }
 
 function closeTaskDetail() {
   showTaskDetailModal.value = false
   taskDetailId.value = null
+  taskDetailCreateColumnId.value = null
+  taskDetailMetaEditing.value = false
+  taskEditAssigneeIds.value = []
+  taskMetaAssigneesBaseline.value = []
   clearDetail()
   newCommentText.value = ''
-  selectedAssigneeUserId.value = ''
   loadTasks({ silent: true }).catch(() => {})
 }
 
-async function submitComment() {
+function submitComment() {
   const tid = taskDetailId.value
   if (!tid || !newCommentText.value.trim()) return
-  try {
-    await addComment(tid, newCommentText.value.trim())
-    newCommentText.value = ''
-  } catch (e) {
-    alert(e instanceof Error ? e.message : 'No se pudo publicar el comentario')
-  }
+  const text = newCommentText.value.trim()
+  void promiseToast(
+    (async () => {
+      await addComment(tid, text)
+      newCommentText.value = ''
+    })(),
+    {
+      loading: 'Publicando comentario…',
+      success: 'Comentario publicado',
+      errorFallback: 'No se pudo publicar el comentario.'
+    }
+  )
 }
 
 async function handleDeleteComment(commentId: string) {
@@ -510,31 +887,7 @@ async function handleDeleteComment(commentId: string) {
   try {
     await deleteComment(tid, commentId)
   } catch (e) {
-    alert(e instanceof Error ? e.message : 'No se pudo eliminar')
-  }
-}
-
-async function handleAddAssignee() {
-  const tid = taskDetailId.value
-  const uid = selectedAssigneeUserId.value
-  if (!tid || !uid) return
-  try {
-    await addAssignee(tid, uid)
-    selectedAssigneeUserId.value = ''
-    await loadTasks({ silent: true })
-  } catch (e) {
-    alert(e instanceof Error ? e.message : 'No se pudo asignar')
-  }
-}
-
-async function handleRemoveAssignee(userId: string) {
-  const tid = taskDetailId.value
-  if (!tid) return
-  try {
-    await removeAssignee(tid, userId)
-    await loadTasks({ silent: true })
-  } catch (e) {
-    alert(e instanceof Error ? e.message : 'No se pudo quitar el responsable')
+    showError(e, 'No se pudo eliminar el comentario.')
   }
 }
 
@@ -587,7 +940,7 @@ async function respondRequest(requestId: string, action: 'accept' | 'reject') {
     await refreshPendingRequests()
     await refreshMembers()
   } catch (e) {
-    alert(e instanceof Error ? e.message : 'Error al procesar la solicitud')
+    showError(e, 'No se pudo procesar la solicitud.')
   }
 }
 
@@ -597,19 +950,25 @@ async function removeMember(userId: string) {
     await apiFetch(`/api/boards/${props.boardId}/members/${userId}`, { method: 'DELETE' })
     await refreshMembers()
   } catch (e) {
-    alert(e instanceof Error ? e.message : 'Error al quitar miembro')
+    showError(e, 'No se pudo quitar al miembro.')
   }
 }
 
 function copyBoardId() {
   if (!import.meta.client || !navigator.clipboard) return
-  navigator.clipboard.writeText(props.boardId).then(() => {
-    copyBoardFeedback.value = 'ID copiado'
-    if (copyBoardTimer) clearTimeout(copyBoardTimer)
-    copyBoardTimer = setTimeout(() => {
-      copyBoardFeedback.value = ''
-    }, 2500)
-  }).catch(() => {})
+  navigator.clipboard
+    .writeText(props.boardId)
+    .then(() => {
+      success('ID del tablero copiado')
+      copyBoardFeedback.value = 'ID copiado'
+      if (copyBoardTimer) clearTimeout(copyBoardTimer)
+      copyBoardTimer = setTimeout(() => {
+        copyBoardFeedback.value = ''
+      }, 2500)
+    })
+    .catch(() => {
+      showError('No se pudo copiar al portapapeles.')
+    })
 }
 
 const isEditingName = ref(false)
@@ -625,12 +984,55 @@ const LONG_PRESS_DURATION = 500 // ms
 
 const localColumns = ref<ColumnType[]>([])
 
+const assigneeQueryId = computed(() => {
+  const q = route.query.assignee
+  return typeof q === 'string' ? q : ''
+})
+
+const assigneesOnBoard = computed<TaskAssignee[]>(() => {
+  const map = new Map<string, TaskAssignee>()
+  for (const t of tasks.value) {
+    for (const a of t.assignees ?? []) {
+      if (!map.has(a.user_id)) map.set(a.user_id, a)
+    }
+  }
+  return [...map.values()].sort((a, b) =>
+    userLabel(a).localeCompare(userLabel(b), undefined, { sensitivity: 'base' })
+  )
+})
+
+function setAssigneeQuery(id: string) {
+  const q = { ...route.query } as Record<string, string | string[] | undefined>
+  if (!id) delete q.assignee
+  else q.assignee = id
+  router.replace({ path: route.path, query: q })
+}
+
+watch(
+  [assigneesOnBoard, () => route.query.assignee],
+  () => {
+    const id = typeof route.query.assignee === 'string' ? route.query.assignee : ''
+    if (!id) return
+    if (!assigneesOnBoard.value.some((a) => a.user_id === id)) {
+      const q = { ...route.query } as Record<string, string | string[] | undefined>
+      delete q.assignee
+      router.replace({ path: route.path, query: q })
+    }
+  },
+  { flush: 'post' }
+)
+
+const visibleTasks = computed(() => {
+  const id = assigneeQueryId.value
+  if (!id) return tasks.value
+  return tasks.value.filter((t) => (t.assignees ?? []).some((a) => a.user_id === id))
+})
+
 // Objeto reactivo para triggers de agregar tarea por columna
-const columnAddTriggers = ref<Record<string, { color: string | null; title?: string } | null>>({})
 
 // Computed para mapear tareas por columna de forma reactiva (usando objeto para reactividad)
 const tasksByColumn = computed(() => {
-  const tasksArray = tasks.value
+  const tasksArray = visibleTasks.value
   const obj: Record<string, Task[]> = {}
   
   // Inicializar todas las columnas con array vacío primero
@@ -645,6 +1047,12 @@ const tasksByColumn = computed(() => {
   })
   
   return obj
+})
+
+const deleteColumnTaskCount = computed(() => {
+  const pending = pendingDeleteColumn.value
+  if (!pending) return 0
+  return (tasksByColumn.value[pending.id] || []).length
 })
 
 // Watch para sincronizar columns con localColumns
@@ -735,7 +1143,7 @@ async function handleAddColumn() {
     newColumnTitle.value = ''
     showAddColumn.value = false
   } catch (err) {
-    alert('Error al crear la columna. Por favor, intenta nuevamente.')
+    showError(err, 'No se pudo crear la columna.')
   }
 }
 
@@ -752,19 +1160,78 @@ watch(showAddColumn, (show) => {
   }
 })
 
+watch(showDeleteColumnModal, (show) => {
+  if (show) {
+    nextTick(() => {
+      deleteColumnDialogRef.value?.focus()
+    })
+  }
+})
+
+watch(showDeleteTaskModal, (show) => {
+  if (show) {
+    nextTick(() => {
+      deleteTaskDialogRef.value?.focus()
+    })
+  }
+})
+
+function openDeleteColumnConfirm(columnId: string) {
+  const col = localColumns.value.find((c) => c.id === columnId)
+  if (!col) return
+  pendingDeleteColumn.value = { id: col.id, title: col.title }
+  showDeleteColumnModal.value = true
+}
+
+function cancelDeleteColumn() {
+  pendingDeleteColumn.value = null
+  showDeleteColumnModal.value = false
+}
+
+async function confirmDeleteColumn() {
+  const id = pendingDeleteColumn.value?.id
+  if (!id) return
+  cancelDeleteColumn()
+  await handleColumnDelete(id)
+}
+
+function openDeleteTaskConfirm(taskId: string) {
+  let title = tasks.value.find((t) => t.id === taskId)?.title
+  if (!title && taskDetailId.value === taskId && taskDetail.value) {
+    title = taskDetail.value.task.title
+  }
+  pendingDeleteTask.value = { id: taskId, title: title?.trim() || 'esta tarea' }
+  showDeleteTaskModal.value = true
+}
+
+function cancelDeleteTask() {
+  pendingDeleteTask.value = null
+  showDeleteTaskModal.value = false
+}
+
+async function confirmDeleteTask() {
+  const id = pendingDeleteTask.value?.id
+  if (!id) return
+  cancelDeleteTask()
+  await handleTaskDelete(id)
+  if (taskDetailId.value === id) {
+    closeTaskDetail()
+  }
+}
+
 async function handleColumnDelete(columnId: string) {
   try {
     await removeColumn(columnId)
     // Recargar columnas para asegurar sincronización
     await loadColumns()
   } catch (err) {
-    alert(err instanceof Error ? err.message : 'Error al eliminar la columna')
+    showError(err, 'No se pudo eliminar la columna.')
   }
 }
 
 async function handleColumnUpdate(columnId: string, title: string) {
   if (!title.trim() || title.trim().length < 3) {
-    alert('El nombre de la columna debe tener al menos 3 caracteres')
+    warning('El nombre de la columna debe tener al menos 3 caracteres.')
     return
   }
   try {
@@ -772,19 +1239,10 @@ async function handleColumnUpdate(columnId: string, title: string) {
     // Recargar columnas para sincronizar
     await loadColumns()
   } catch (err) {
-    alert('Error al actualizar la columna. Por favor, intenta nuevamente.')
+    showError(err, 'No se pudo actualizar la columna.')
   }
 }
 
-
-async function handleTaskCreate(columnId: string, title: string, color: string | null) {
-  try {
-    await createTask(columnId, title, color)
-    await nextTick()
-  } catch (err) {
-    alert('Error al crear la tarea. Por favor, intenta nuevamente.')
-  }
-}
 
 async function handleTaskUpdate(
   taskId: string,
@@ -799,32 +1257,86 @@ async function handleTaskUpdate(
     }
     await updateTask(taskId, updates)
   } catch (err) {
-    alert('Error al actualizar la tarea. Por favor, intenta nuevamente.')
     await loadTasks({ silent: true })
     throw err
   }
 }
 
 async function saveTaskDetailMeta() {
-  const tid = taskDetailId.value
-  if (!tid || !taskDetail.value) return
+  const createColId = taskDetailCreateColumnId.value
   const title = taskEditTitle.value.trim()
   if (title.length < 3) {
-    alert('El título debe tener al menos 3 caracteres.')
+    warning('El título debe tener al menos 3 caracteres.')
     return
   }
-  try {
-    const descriptionNorm = normalizeTaskDescription(taskEditDescription.value)
-    await handleTaskUpdate(tid, {
-      title,
-      color: taskEditColor.value,
-      description: descriptionNorm.length ? descriptionNorm : null
-    })
-    await loadDetail(tid)
-    await loadTasks({ silent: true })
-  } catch {
-    // handleTaskUpdate ya mostró error y sincronizó
+  if (createColId) {
+    void promiseToast(
+      (async () => {
+        const newTask = await createTask(createColId, title, taskEditColor.value)
+        const descriptionNorm = normalizeTaskDescription(taskEditDescription.value)
+        if (descriptionNorm.length > 0) {
+          await updateTask(newTask.id, { description: descriptionNorm })
+        }
+        taskDetailCreateColumnId.value = null
+        taskDetailId.value = newTask.id
+        taskDetailMetaEditing.value = false
+        await loadDetail(newTask.id)
+        await loadTasks({ silent: true })
+        return newTask
+      })(),
+      {
+        loading: 'Creando tarea…',
+        success: 'Tarea creada',
+        errorFallback: 'No se pudo crear la tarea.'
+      }
+    )
+    return
   }
+
+  const tid = taskDetailId.value
+  if (!tid || !taskDetail.value) return
+  const bid = props.boardId
+  void promiseToast(
+    (async () => {
+      const descriptionNorm = normalizeTaskDescription(taskEditDescription.value)
+      await handleTaskUpdate(tid, {
+        title,
+        color: taskEditColor.value,
+        description: descriptionNorm.length ? descriptionNorm : null
+      })
+      const baseline = taskMetaAssigneesBaseline.value
+      const desired = [...taskEditAssigneeIds.value]
+      const baselineSet = new Set(baseline)
+      const toAdd = desired.filter((id) => !baselineSet.has(id))
+      const toRemove = baseline.filter((id) => !desired.includes(id))
+      try {
+        if (bid) {
+          for (const id of toAdd) {
+            await apiFetch(`/api/boards/${bid}/tasks/${tid}/assignees`, {
+              method: 'POST',
+              body: { user_id: id }
+            })
+          }
+          for (const id of toRemove) {
+            await apiFetch(`/api/boards/${bid}/tasks/${tid}/assignees/${id}`, { method: 'DELETE' })
+          }
+        }
+        taskMetaAssigneesBaseline.value = [...desired]
+        await loadDetail(tid)
+        await loadTasks({ silent: true })
+        taskDetailMetaEditing.value = false
+      } catch (e) {
+        await loadDetail(tid).catch(() => {})
+        await loadTasks({ silent: true })
+        throw e
+      }
+    })(),
+    {
+      loading: 'Guardando cambios…',
+      success: 'Cambios guardados',
+      errorFallback: 'No se pudieron guardar los cambios.'
+    }
+  )
 }
 
 async function handleTaskDelete(taskId: string) {
@@ -832,7 +1344,7 @@ async function handleTaskDelete(taskId: string) {
     await removeTask(taskId)
     await loadTasks({ silent: true })
   } catch (err) {
-    alert('Error al eliminar la tarea. Por favor, intenta nuevamente.')
+    showError(err, 'No se pudo eliminar la tarea.')
   }
 }
 
@@ -860,7 +1372,7 @@ async function handleTaskMove(taskId: string, newColumnId: string, newOrder: num
     }
     loadTasks({ silent: true }).catch(() => {})
   } catch (err) {
-    alert('Error al mover la tarea. Por favor, intenta nuevamente.')
+    showError(err, 'No se pudo mover la tarea.')
     await loadTasks({ silent: true })
   }
 }
@@ -870,36 +1382,9 @@ async function handleTaskReorder(columnId: string, updates: Array<{ id: string; 
     await reorderTasks(updates)
     await loadTasks({ silent: true })
   } catch (err) {
-    alert('Error al reordenar las tareas. Por favor, intenta nuevamente.')
+    showError(err, 'No se pudieron reordenar las tareas.')
     await loadTasks({ silent: true })
   }
-}
-
-function handleCreateTaskFromGlossary(glossaryItem: GlossaryItem) {
-  // Encontrar la primera columna (menor order)
-  if (localColumns.value.length === 0) {
-    return
-  }
-  
-  const firstColumn = localColumns.value.reduce((prev, current) => {
-    return (prev.order < current.order) ? prev : current
-  })
-  
-  // Actualizar el trigger para abrir el formulario en esa columna
-  // Primero resetear a null para que el watch detecte el cambio
-  columnAddTriggers.value[firstColumn.id] = null
-  nextTick(() => {
-    // Luego establecer el trigger con el color y el título del glosario
-    columnAddTriggers.value[firstColumn.id] = { 
-      color: glossaryItem.color,
-      title: glossaryItem.name
-    }
-    
-    // Resetear después de un momento para permitir que se active nuevamente si es necesario
-    setTimeout(() => {
-      columnAddTriggers.value[firstColumn.id] = null
-    }, 100)
-  })
 }
 
 function handleLogout() {
@@ -926,7 +1411,7 @@ function handleLogout() {
   display: flex;
   align-items: center;
   gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-2xl);
+  margin-bottom: 10px;
   flex-wrap: wrap;
 }
 
@@ -1104,9 +1589,102 @@ function handleLogout() {
 
 .board__modal--task-detail {
   max-width: 480px;
-  max-height: 85vh;
-  overflow-y: auto;
+  max-height: 600.9px;
   width: 100%;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.board__task-detail-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 32px;
+}
+
+.board__task-detail-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.board__task-detail-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.board__task-detail-meta--topbar {
+  margin: 0;
+  flex: 1;
+  min-width: 140px;
+}
+
+.board__task-detail-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: #fff;
+  background: var(--brand-primary);
+  border: 1px solid var(--brand-primary);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.board__task-detail-close-btn:hover {
+  background: var(--brand-primary-hover);
+  border-color: var(--brand-primary-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.board__task-detail-close-btn:active {
+  background: var(--brand-primary-active);
+  border-color: var(--brand-primary-active);
+}
+
+.board__task-detail-close-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.board__task-detail-close-btn:disabled:hover,
+.board__task-detail-close-btn:disabled:active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  box-shadow: none;
+}
+
+.board__task-detail-error-body {
+  margin: 0;
+}
+
+.board__task-detail-section--title-block {
+  margin-bottom: var(--spacing-md);
+}
+
+.board__task-detail-title-readonly-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
 }
 
 .board__task-detail-title-field {
@@ -1168,20 +1746,11 @@ function handleLogout() {
   margin: 0 0 var(--spacing-md);
 }
 
-.board__task-detail-meta--first {
-  margin-top: 0;
-}
-
 .board__task-detail-hint {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   margin: 0 0 var(--spacing-sm);
   line-height: var(--line-height-relaxed);
-}
-
-.board__task-detail-section--save {
-  margin-top: calc(-1 * var(--spacing-sm));
-  margin-bottom: var(--spacing-lg);
 }
 
 .board__task-detail-section {
@@ -1193,6 +1762,285 @@ function handleLogout() {
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   margin: 0 0 var(--spacing-sm);
+}
+
+.board__task-detail-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--brand-primary);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.board__task-detail-edit-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--brand-primary);
+}
+
+.board__task-detail-edit-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.board__task-detail-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.board__task-detail-delete-btn:hover {
+  color: #b71c1c;
+  border-color: rgba(183, 28, 28, 0.45);
+  background: rgba(183, 28, 28, 0.06);
+}
+
+.board__task-detail-delete-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.board__task-detail-readonly-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: var(--line-height-tight);
+  margin: 0;
+  word-break: break-word;
+  flex: 1;
+  min-width: 0;
+}
+
+.board__task-detail-readonly-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid var(--border-color);
+  box-sizing: border-box;
+  margin-top: 2px;
+}
+
+.board__task-detail-assignees-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: nowrap;
+  min-width: 0;
+  margin-bottom: var(--spacing-sm);
+}
+
+.board__task-detail-assignees-label {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.board__task-detail-assignee-strip {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 5px 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.board__task-detail-assignee-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.board__task-detail-assignee-chip-pad {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 6px;
+  margin: 0;
+  line-height: 0;
+}
+
+.board__task-detail-assignee-chip-pad--with-remove {
+  position: relative;
+  padding-right: 10px;
+}
+
+.board__task-detail-assignee-none-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  transition:
+    box-shadow var(--transition-base),
+    transform var(--transition-fast);
+}
+
+.board__task-detail-assignee-chip-pad--active .board__task-detail-assignee-none-inner {
+  box-shadow: 0 0 0 2px var(--brand-primary);
+}
+
+.board__task-detail-assignee-user-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.board__task-detail-assignee-avatar-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: #fff;
+  letter-spacing: -0.02em;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.board__task-detail-assignee-avatar-inner--picker {
+  box-shadow: 0 0 0 2px dashed var(--border-color);
+}
+
+.board__task-detail-assignee-picker-btn {
+  margin: 0;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: transform var(--transition-base);
+}
+
+.board__task-detail-assignee-picker-btn:hover {
+  transform: scale(1.06);
+}
+
+.board__task-detail-assignee-picker-btn:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.board__task-detail-assignee-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 1px var(--border-color);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.board__task-detail-assignee-remove:hover {
+  color: #d32f2f;
+  background: var(--bg-tertiary);
+}
+
+.board__task-detail-assignee-remove:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.board__task-detail-description-view {
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.board__task-detail-description-view :deep(.markdown-body p) {
+  margin: 0 0 0.5em;
+}
+
+.board__task-detail-description-view :deep(.markdown-body p:last-child) {
+  margin-bottom: 0;
+}
+
+.board__task-detail-description-view :deep(.markdown-body ul),
+.board__task-detail-description-view :deep(.markdown-body ol) {
+  margin: 0.25em 0 0.5em;
+  padding-left: 1.25rem;
+}
+
+.board__task-detail-description-view :deep(.markdown-body a) {
+  color: var(--brand-primary);
+  word-break: break-all;
+}
+
+.board__task-detail-description-view :deep(.markdown-body code) {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+.board__task-detail-description-view :deep(.markdown-body pre) {
+  overflow-x: auto;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.board__task-detail-description-view :deep(.markdown-body blockquote) {
+  margin: 0.5em 0;
+  padding-left: var(--spacing-sm);
+  border-left: 3px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.board__task-detail-desc-empty {
+  margin-top: 0;
 }
 
 .board__assignee-chips {
@@ -1226,28 +2074,6 @@ function handleLogout() {
 
 .board__assignee-chip-remove:hover {
   color: #d32f2f;
-}
-
-.board__assignee-add {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm);
-  align-items: center;
-}
-
-.board__task-detail-select {
-  flex: 1;
-  min-width: 160px;
-  font-size: var(--font-size-sm);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: var(--border-radius-md);
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.board__form-button--narrow {
-  flex: 0 0 auto;
 }
 
 .board__inline-empty {
@@ -1529,6 +2355,10 @@ function handleLogout() {
   animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.board__add-column-form.board__modal--task-detail {
+  padding: 0;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -1545,6 +2375,10 @@ function handleLogout() {
     min-width: 90%;
     max-width: 90%;
     padding: var(--spacing-lg);
+  }
+
+  .board__add-column-form.board__modal--task-detail {
+    padding: 0;
   }
 }
 
@@ -1596,6 +2430,39 @@ function handleLogout() {
 
 .board__form-button:not(.board__form-button--primary):active {
   transform: scale(0.98);
+}
+
+.board__form-button.board__form-button--danger {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+}
+
+.board__form-button.board__form-button--danger:hover:not(:disabled) {
+  background: #b91c1c;
+  box-shadow: var(--shadow-sm);
+}
+
+.board__form-button.board__form-button--danger:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.board__modal-warning-text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.board__modal-warning-text strong {
+  color: var(--text-primary);
+}
+
+.board__modal-warning-meta {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: #d32f2f;
+  font-weight: var(--font-weight-medium);
 }
 
 .board__loading,

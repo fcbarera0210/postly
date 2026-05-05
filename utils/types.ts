@@ -83,11 +83,3 @@ export interface TaskDetail {
   comments: TaskComment[]
   assignees: TaskAssignee[]
 }
-
-export interface GlossaryItem {
-  id: string
-  board_id: string
-  name: string
-  color: string
-  order: number
-}

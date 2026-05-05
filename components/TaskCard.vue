@@ -51,14 +51,14 @@
       aria-label="Eliminar tarea"
       @click.stop="$emit('delete')"
     >
-      ×
+      <TrashIcon class="task-card__delete-icon" aria-hidden="true" />
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ChatBubbleLeftRightIcon } from '@heroicons/vue/24/outline'
+import { ChatBubbleLeftRightIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { Task, TaskAssignee } from '~/utils/types'
 import { userInitials, userLabel } from '~/utils/userLabel'
 import { postitBackgroundCss } from '~/utils/postitColors'
@@ -316,13 +316,20 @@ const cardStyle = computed(() => {
   align-items: center;
   justify-content: center;
   color: var(--text-tertiary);
-  font-size: 24px;
-  line-height: 1;
   opacity: 0;
-  padding: var(--spacing-xs);
-  transition: opacity var(--transition-base), color var(--transition-base), transform var(--transition-base);
+  padding: 4px;
+  border: none;
+  background: transparent;
+  border-radius: var(--border-radius-sm);
+  transition: opacity var(--transition-base), color var(--transition-base), transform var(--transition-base),
+    background var(--transition-base);
   cursor: pointer;
   z-index: 10;
+}
+
+.task-card__delete-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .task-card:hover .task-card__delete {
@@ -331,10 +338,11 @@ const cardStyle = computed(() => {
 
 .task-card__delete:hover {
   color: #d32f2f;
-  transform: scale(1.3);
+  background: rgba(211, 47, 47, 0.08);
+  transform: scale(1.08);
 }
 
 .task-card__delete:active {
-  transform: scale(1.1);
+  transform: scale(1.02);
 }
 </style>

@@ -93,7 +93,7 @@ Si una funcionalidad no ayuda directamente a organizar tareas, no entra.
 
 ## 🧱 Modelo de datos (resumen)
 
-La fuente de verdad son las tablas en `database/schema.sql`, entre ellas: `users` (incl. `display_name`), `boards`, `board_members`, `board_access_requests` (incl. `resolved_by_user_id`, `resolved_at`), `columns`, `tasks`, `task_comments`, `task_assignees`, `glossary`.
+La fuente de verdad son las tablas en `database/schema.sql`, entre ellas: `users` (incl. `display_name`), `boards`, `board_members`, `board_access_requests` (incl. `resolved_by_user_id`, `resolved_at`), `columns`, `tasks`, `task_comments`, `task_assignees`.
 
 ---
 
@@ -125,7 +125,7 @@ postly/
 │     └─ [id].vue         # Kanban
 ├─ server/api/            # REST + Neon
 ├─ components/
-│  ├─ Board.vue, Column.vue, TaskCard.vue, Glossary.vue, LoginGate.vue, …
+│  ├─ Board.vue, Column.vue, TaskCard.vue, AssigneeFilter.vue, LoginGate.vue, …
 ├─ composables/           # useAuth, useBoard, useTasks, useTaskDetail, …
 ├─ database/              # schema.sql y migraciones
 └─ utils/
