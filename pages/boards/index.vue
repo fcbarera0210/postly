@@ -105,7 +105,8 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="profile-modal-title"
-      @click.self="closeProfile"
+      @mousedown="profileBackdrop.onBackdropMouseDown"
+      @mouseup="profileBackdrop.onBackdropMouseUp"
     >
       <div class="boards-page__modal" @keydown.escape="closeProfile">
         <h2 id="profile-modal-title" class="boards-page__modal-title">Tu perfil</h2>
@@ -168,6 +169,7 @@ import type { Board, User } from '~/utils/types'
 import { apiFetch } from '~/composables/useApi'
 import { useAuth } from '~/composables/useAuth'
 import { usePostlyToast } from '~/composables/usePostlyToast'
+import { useBackdropClose } from '~/composables/useBackdropClose'
 import { userLabel } from '~/utils/userLabel'
 import { POSTIT_COLOR_OPTIONS } from '~/utils/postitColors'
 definePageMeta({
@@ -190,6 +192,7 @@ const profileDraft = ref('')
 const profileAccentDraft = ref<string | null>(null)
 const profileEmail = ref('')
 const profileSaving = ref(false)
+const profileBackdrop = useBackdropClose(() => closeProfile())
 const copiedBoardId = ref<string | null>(null)
 const copyAnnounce = ref('')
 let copyTimer: ReturnType<typeof setTimeout> | null = null

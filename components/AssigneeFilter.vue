@@ -19,6 +19,18 @@
         </span>
       </button>
       <button
+        type="button"
+        class="assignee-filter__chip"
+        :class="{ 'assignee-filter__chip--active': modelValue === NO_ASSIGNEE_FILTER }"
+        :aria-pressed="modelValue === NO_ASSIGNEE_FILTER"
+        title="Sin responsables"
+        @click="emit('update:modelValue', NO_ASSIGNEE_FILTER)"
+      >
+        <span class="assignee-filter__chip-inner assignee-filter__chip-inner--none">
+          <UserIcon class="assignee-filter__none-icon" aria-hidden="true" />
+        </span>
+      </button>
+      <button
         v-for="a in options"
         :key="a.user_id"
         type="button"
@@ -40,8 +52,9 @@
 </template>
 
 <script setup lang="ts">
-import { Squares2X2Icon } from '@heroicons/vue/24/outline'
+import { Squares2X2Icon, UserIcon } from '@heroicons/vue/24/outline'
 import type { TaskAssignee } from '~/utils/types'
+import { NO_ASSIGNEE_FILTER } from '~/utils/types'
 import { userInitials, userLabel } from '~/utils/userLabel'
 
 defineProps<{
@@ -127,7 +140,8 @@ function avatarBg(userId: string): string {
     transform var(--transition-fast);
 }
 
-.assignee-filter__chip-inner--all {
+.assignee-filter__chip-inner--all,
+.assignee-filter__chip-inner--none {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
@@ -141,7 +155,8 @@ function avatarBg(userId: string): string {
   box-shadow: 0 0 0 2px var(--brand-primary);
 }
 
-.assignee-filter__all-icon {
+.assignee-filter__all-icon,
+.assignee-filter__none-icon {
   width: 18px;
   height: 18px;
 }

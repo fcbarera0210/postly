@@ -91,3 +91,7 @@ export interface TaskDetail {
   comments: TaskComment[]
   assignees: TaskAssignee[]
 }
+
+/** Sentinela para el filtro de tareas sin responsables asignados. UUIDs no contienen `_`, no hay colisión. */
+export const NO_ASSIGNEE_FILTER = '__none__'
+

@@ -114,7 +114,12 @@
       </div>
     </div>
 
-    <div v-if="showRequestsModal" class="board__add-column-modal" @click.self="showRequestsModal = false">
+    <div
+      v-if="showRequestsModal"
+      class="board__add-column-modal"
+      @mousedown="requestsBackdrop.onBackdropMouseDown"
+      @mouseup="requestsBackdrop.onBackdropMouseUp"
+    >
       <div class="board__add-column-form board__modal--wide">
         <h3 id="requests-modal-title" class="board__form-title">Solicitudes pendientes</h3>
         <p v-if="!pendingRequests.length" class="board__modal-empty">No hay solicitudes pendientes.</p>
@@ -150,7 +155,12 @@
       </div>
     </div>
 
-    <div v-if="showMembersModal" class="board__add-column-modal" @click.self="showMembersModal = false">
+    <div
+      v-if="showMembersModal"
+      class="board__add-column-modal"
+      @mousedown="membersBackdrop.onBackdropMouseDown"
+      @mouseup="membersBackdrop.onBackdropMouseUp"
+    >
       <div class="board__add-column-form board__modal--wide">
         <h3 class="board__form-title">Miembros</h3>
         <ul class="board__member-list">
@@ -174,7 +184,8 @@
     <div
       v-if="showTaskDetailModal && (taskDetailId || taskDetailCreateColumnId)"
       class="board__add-column-modal"
-      @click.self="closeTaskDetail"
+      @mousedown="taskDetailBackdrop.onBackdropMouseDown"
+      @mouseup="taskDetailBackdrop.onBackdropMouseUp"
     >
       <div class="board__add-column-form board__modal--task-detail" @click.stop>
         <div v-if="taskDetailLoading && taskDetailId && !taskDetailCreateColumnId" class="board__task-detail-modal-body">
@@ -223,6 +234,64 @@
               >
                 El título debe tener al menos 3 caracteres
               </p>
+
+              <div class="board__task-detail-assignees-toolbar" role="group" aria-label="Responsables de la tarea">
+                <span class="board__task-detail-assignees-label">Responsable:</span>
+                <div class="board__task-detail-assignee-strip">
+                  <span
+                    v-if="!taskEditAssigneeIds.length"
+                    class="board__task-detail-assignee-chip-pad board__task-detail-assignee-chip-pad--active"
+                  >
+                    <span
+                      class="board__task-detail-assignee-none-inner"
+                      role="img"
+                      aria-label="Sin responsables asignados"
+                    >
+                      <UserIcon class="board__task-detail-assignee-user-icon" aria-hidden="true" />
+                    </span>
+                  </span>
+                  <span
+                    v-for="uid in taskEditAssigneeIds"
+                    :key="uid"
+                    class="board__task-detail-assignee-chip-pad board__task-detail-assignee-chip-pad--with-remove"
+                  >
+                    <span
+                      v-if="taskDetailPersonForUserId(uid)"
+                      class="board__task-detail-assignee-avatar-inner"
+                      :style="{ backgroundColor: taskDetailAssigneeAvatarBg(uid) }"
+                      :title="userLabel(taskDetailPersonForUserId(uid)!)"
+                    >
+                      {{ userInitials(taskDetailPersonForUserId(uid)!) }}
+                    </span>
+                    <button
+                      type="button"
+                      class="board__task-detail-assignee-remove"
+                      title="Quitar responsable"
+                      :aria-label="`Quitar a ${taskDetailPersonForUserId(uid) ? userLabel(taskDetailPersonForUserId(uid)!) : uid}`"
+                      @click="removeAssigneeFromEdit(uid)"
+                    >
+                      ×
+                    </button>
+                  </span>
+                  <button
+                    v-for="m in assigneePickerOptionsEditing"
+                    :key="m.user_id"
+                    type="button"
+                    class="board__task-detail-assignee-chip-pad board__task-detail-assignee-picker-btn"
+                    :title="`${userLabel(m)} (${m.role === 'owner' ? 'Dueño' : 'Editor'})`"
+                    :aria-label="`Añadir a ${userLabel(m)}`"
+                    @click="stageAddAssignee(m.user_id)"
+                  >
+                    <span
+                      class="board__task-detail-assignee-avatar-inner board__task-detail-assignee-avatar-inner--picker"
+                      :style="{ backgroundColor: taskDetailAssigneeAvatarBg(m.user_id) }"
+                    >
+                      {{ userInitials(m) }}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
               <div class="board__task-detail-color-row" role="group" aria-label="Color de la tarjeta">
                 <button
                   v-for="c in POSTIT_COLOR_OPTIONS"
@@ -519,7 +588,8 @@
     <div
       v-if="showDeleteColumnModal && pendingDeleteColumn"
       class="board__add-column-modal"
-      @click.self="cancelDeleteColumn"
+      @mousedown="deleteColumnBackdrop.onBackdropMouseDown"
+      @mouseup="deleteColumnBackdrop.onBackdropMouseUp"
     >
       <div
         ref="deleteColumnDialogRef"
@@ -552,7 +622,8 @@
     <div
       v-if="showDeleteTaskModal && pendingDeleteTask"
       class="board__add-column-modal"
-      @click.self="cancelDeleteTask"
+      @mousedown="deleteTaskBackdrop.onBackdropMouseDown"
+      @mouseup="deleteTaskBackdrop.onBackdropMouseUp"
     >
       <div
         ref="deleteTaskDialogRef"
@@ -578,7 +649,12 @@
       </div>
     </div>
 
-    <div v-if="showAddColumn" class="board__add-column-modal" @click.self="cancelAddColumn">
+    <div
+      v-if="showAddColumn"
+      class="board__add-column-modal"
+      @mousedown="addColumnBackdrop.onBackdropMouseDown"
+      @mouseup="addColumnBackdrop.onBackdropMouseUp"
+    >
       <div class="board__add-column-form">
         <h3 class="board__form-title">Nueva Columna</h3>
         <input
@@ -635,6 +711,7 @@ import { useTaskDetail } from '~/composables/useTaskDetail'
 import { useAuth } from '~/composables/useAuth'
 import { apiFetch } from '~/composables/useApi'
 import { usePostlyToast } from '~/composables/usePostlyToast'
+import { useBackdropClose } from '~/composables/useBackdropClose'
 import { userLabel, userInitials } from '~/utils/userLabel'
 import { formatDateDMYShortWithTime, formatLocaleDateTime } from '~/utils/formatDate'
 import { POSTIT_COLOR_OPTIONS, postitBackgroundCss } from '~/utils/postitColors'
@@ -648,6 +725,7 @@ import type {
   BoardMemberRow,
   BoardRequestsPayload
 } from '~/utils/types'
+import { NO_ASSIGNEE_FILTER } from '~/utils/types'
 
 const props = defineProps<{ boardId: string }>()
 
@@ -769,7 +847,8 @@ function taskDetailPersonForUserId(userId: string): { email: string; display_nam
 }
 
 const assigneePickerOptionsEditing = computed(() => {
-  if (!taskDetailMetaEditing.value || !members.value.length) return []
+  const inEditMode = taskDetailMetaEditing.value || taskDetailCreateColumnId.value !== null
+  if (!inEditMode || !members.value.length) return []
   const picked = new Set(taskEditAssigneeIds.value)
   return members.value.filter((m) => !picked.has(m.user_id))
 })
@@ -833,6 +912,8 @@ async function openCreateTaskDetail(columnId: string) {
   taskEditTitle.value = ''
   taskEditColor.value = null
   taskEditDescription.value = ''
+  taskEditAssigneeIds.value = []
+  taskMetaAssigneesBaseline.value = []
   taskDetailMetaEditing.value = false
   showTaskDetailModal.value = true
   newCommentText.value = ''
@@ -978,6 +1059,17 @@ const showAddColumn = ref(false)
 const newColumnTitle = ref('')
 const columnInputRef = ref<HTMLInputElement | null>(null)
 
+const requestsBackdrop = useBackdropClose(() => {
+  showRequestsModal.value = false
+})
+const membersBackdrop = useBackdropClose(() => {
+  showMembersModal.value = false
+})
+const taskDetailBackdrop = useBackdropClose(() => closeTaskDetail())
+const deleteColumnBackdrop = useBackdropClose(() => cancelDeleteColumn())
+const deleteTaskBackdrop = useBackdropClose(() => cancelDeleteTask())
+const addColumnBackdrop = useBackdropClose(() => cancelAddColumn())
+
 // Long press para móvil
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
 const LONG_PRESS_DURATION = 500 // ms
@@ -1013,6 +1105,7 @@ watch(
   () => {
     const id = typeof route.query.assignee === 'string' ? route.query.assignee : ''
     if (!id) return
+    if (id === NO_ASSIGNEE_FILTER) return
     if (!assigneesOnBoard.value.some((a) => a.user_id === id)) {
       const q = { ...route.query } as Record<string, string | string[] | undefined>
       delete q.assignee
@@ -1025,6 +1118,9 @@ watch(
 const visibleTasks = computed(() => {
   const id = assigneeQueryId.value
   if (!id) return tasks.value
+  if (id === NO_ASSIGNEE_FILTER) {
+    return tasks.value.filter((t) => !(t.assignees ?? []).length)
+  }
   return tasks.value.filter((t) => (t.assignees ?? []).some((a) => a.user_id === id))
 })
 
@@ -1270,6 +1366,8 @@ async function saveTaskDetailMeta() {
     return
   }
   if (createColId) {
+    const bidCreate = props.boardId
+    const assigneesToAdd = [...taskEditAssigneeIds.value]
     void promiseToast(
       (async () => {
         const newTask = await createTask(createColId, title, taskEditColor.value)
@@ -1277,9 +1375,18 @@ async function saveTaskDetailMeta() {
         if (descriptionNorm.length > 0) {
           await updateTask(newTask.id, { description: descriptionNorm })
         }
+        if (bidCreate) {
+          for (const id of assigneesToAdd) {
+            await apiFetch(`/api/boards/${bidCreate}/tasks/${newTask.id}/assignees`, {
+              method: 'POST',
+              body: { user_id: id }
+            })
+          }
+        }
         taskDetailCreateColumnId.value = null
         taskDetailId.value = newTask.id
         taskDetailMetaEditing.value = false
+        taskMetaAssigneesBaseline.value = [...assigneesToAdd]
         await loadDetail(newTask.id)
         await loadTasks({ silent: true })
         return newTask
@@ -2233,19 +2340,19 @@ function handleLogout() {
 }
 
 .board__add-column-icon {
-  background: var(--brand-primary);
-  color: white;
-  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .board__add-column-icon:hover {
-  background: var(--brand-primary-hover);
+  background: var(--bg-primary);
+  border-color: var(--text-secondary);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
 .board__add-column-icon:active {
-  background: var(--brand-primary-active);
   transform: translateY(0);
 }
 
